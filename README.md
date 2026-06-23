@@ -14,11 +14,11 @@ wordclub/
 │       │   ├── config/          # Sa-Token 路由拦截
 │       │   ├── controller/      # 5 个 Controller (Auth/Word/Book/Vocabulary/Learning)
 │       │   ├── dto/             # Request/Response DTO
-│       │   ├── entity/          # 8 个实体 (User/Word/Vocabulary/Book/VocBook/
-│       │   │                    #   VocExample/UserWordProgress/UserFavorite)
+│       │   ├── entity/          # 9 个实体 (User/Word/Vocabulary/Book/VocBook/
+│       │   │                    #   VocExample/UserWordProgress/UserFavorite/UserSetting)
 │       │   ├── exception/       # GlobalExceptionHandler + RateLimitException
-│       │   ├── repository/      # 7 个 JPA Repository
-│       │   └── service/         # 5 个 Service (含 SM-2 算法)
+│       │   ├── repository/      # 8 个 JPA Repository
+│       │   └── service/         # 6 个 Service (含 SM-2 算法)
 │       └── resources/
 │           └── application.yaml
 ├── data/                    # 词汇语料库 SQL/JSON (~110MB, gitignore)
@@ -55,7 +55,7 @@ wordclub/
 
 ## 数据库
 
-MySQL `wordclub` 库，7 张表：
+MySQL `wordclub` 库，8 张表：
 
 | 表 | 行数 | 说明 |
 |---|---|---|
@@ -66,6 +66,7 @@ MySQL `wordclub` 库，7 张表：
 | `users` | — | 用户表 |
 | `user_word_progress` | — | SM-2 学习进度 (需手动建表) |
 | `user_favorites` | — | 用户收藏 (需手动建表) |
+| `user_settings` | — | 用户学习设置 (需手动建表) |
 
 **导入语料库**（仅首次，SQL 在 `data/` 目录）：
 ```bash
@@ -105,6 +106,8 @@ mysql -u root -p123123 wordclub < data/init-user-tables.sql
 | GET | `/favorites` | 需 | 收藏列表 |
 | POST | `/favorites/{wordId}` | 需 | 添加收藏 |
 | DELETE | `/favorites/{wordId}` | 需 | 取消收藏 |
+| GET | `/settings` | 需 | 获取用户学习设置 |
+| PUT | `/settings` | 需 | 保存用户学习设置 |
 
 **认证**：Sa-Token JWT + Redis。`/api/auth/**` 放行，其余 `/api/**` 需 `Bearer` token。
 
@@ -182,6 +185,7 @@ cd android && ./gradlew installDebug
 - ✅ 独立设置页（/settings）— 词书 + 每日目标（新词/复习比例）+ 偏好
 - ✅ 单词学习自动播放发音
 - ✅ 学习进度持久化 — 重新登录自动恢复位置
+- ✅ 用户设置持久化 — 每日目标/偏好/考试目标存库，换设备不丢
 - ✅ Material Icons 本地化（国内可用）
 - ⬜ Android 端对接新单词 API
 - ⬜ 拼写/选择题测验后端

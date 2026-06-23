@@ -1,12 +1,14 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
+import { useWordStore } from './stores/word'
 import SearchModal from './components/SearchModal.vue'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const wordStore = useWordStore()
 const showSearch = ref(false)
 const showUserMenu = ref(false)
 
@@ -19,6 +21,19 @@ function handleLogout() {
   authStore.logout()
   router.push('/login')
 }
+
+// Load user settings when authenticated
+onMounted(() => {
+  if (authStore.isLoggedIn) {
+    wordStore.fetchSettings()
+  }
+})
+
+watch(() => authStore.isLoggedIn, (loggedIn) => {
+  if (loggedIn) {
+    wordStore.fetchSettings()
+  }
+})
 </script>
 
 <template>

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import api from '../api'
 
 export const useWordStore = defineStore('word', () => {
@@ -75,6 +75,60 @@ export const useWordStore = defineStore('word', () => {
   }
 
   const bookProgress = ref(null) // { totalWords, studiedCount, masteredCount, completionPercent, resumePage, resumeIndex, lastWordId }
+
+  // Settings persistence
+  const _settingsLoaded = ref(false)
+  let _saveTimer = null
+
+  async function fetchSettings() {
+    try {
+      const data = await api.get('/learning/settings')
+      const s = data.data || data
+      if (s) {
+        newWordCount.value = s.newWordCount ?? 50
+        reviewRatio.value = s.reviewRatio ?? 1
+        cardOrder.value = s.cardOrder ?? 'random'
+        largeFont.value = s.largeFont ?? false
+        darkMode.value = s.darkMode ?? false
+        examDate.value = s.examDate ?? ''
+        if (s.selectedBookId) {
+          selectedBookId.value = s.selectedBookId
+        }
+      }
+    } catch (e) {
+      console.error('[WordStore] fetchSettings:', e.message)
+    } finally {
+      _settingsLoaded.value = true
+      // Flush any changes that happened during loading (e.g. selectBook)
+      saveSettings()
+    }
+  }
+
+  async function saveSettings() {
+    if (!_settingsLoaded.value) return
+    if (_saveTimer) clearTimeout(_saveTimer)
+    _saveTimer = setTimeout(async () => {
+      try {
+        await api.put('/learning/settings', {
+          newWordCount: newWordCount.value,
+          reviewRatio: reviewRatio.value,
+          cardOrder: cardOrder.value,
+          largeFont: largeFont.value,
+          darkMode: darkMode.value,
+          examDate: examDate.value,
+          selectedBookId: selectedBookId.value,
+        })
+      } catch (e) {
+        console.error('[WordStore] saveSettings:', e.message)
+      }
+    }, 500)
+  }
+
+  // Auto-save when any setting changes
+  watch(
+    [newWordCount, reviewRatio, cardOrder, largeFont, darkMode, examDate, selectedBookId],
+    () => saveSettings()
+  )
 
   async function selectBook(bookId, resume = true) {
     selectedBookId.value = bookId
@@ -251,5 +305,6 @@ export const useWordStore = defineStore('word', () => {
     markMastered, markFuzzy, markUnknown,
     skipWord, nextWord, setOrder,
     toggleLargeFont, toggleDarkMode,
+    fetchSettings, saveSettings,
   }
 })

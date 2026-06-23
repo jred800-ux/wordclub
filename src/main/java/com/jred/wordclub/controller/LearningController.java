@@ -4,6 +4,8 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.jred.wordclub.common.Result;
 import com.jred.wordclub.entity.UserFavorite;
 import com.jred.wordclub.entity.UserWordProgress;
+import com.jred.wordclub.entity.UserSetting;
+import com.jred.wordclub.service.UserSettingService;
 import com.jred.wordclub.service.VocabularyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +19,7 @@ import java.util.Map;
 public class LearningController {
 
     private final VocabularyService vocabularyService;
+    private final UserSettingService userSettingService;
 
     @PostMapping("/review")
     public Result<UserWordProgress> recordReview(@RequestBody Map<String, Object> body) {
@@ -77,5 +80,17 @@ public class LearningController {
     public Result<Boolean> checkFavorite(@PathVariable Long wordId) {
         long userId = StpUtil.getLoginIdAsLong();
         return Result.ok(vocabularyService.isFavorited(userId, wordId));
+    }
+
+    @GetMapping("/settings")
+    public Result<UserSetting> getSettings() {
+        long userId = StpUtil.getLoginIdAsLong();
+        return Result.ok(userSettingService.getSettings(userId));
+    }
+
+    @PutMapping("/settings")
+    public Result<UserSetting> saveSettings(@RequestBody UserSetting body) {
+        long userId = StpUtil.getLoginIdAsLong();
+        return Result.ok(userSettingService.saveSettings(userId, body));
     }
 }

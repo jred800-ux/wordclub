@@ -23,3 +23,18 @@ CREATE TABLE IF NOT EXISTS `user_favorites` (
     `created_at` DATETIME(6) DEFAULT NULL,
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `user_settings` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT NOT NULL UNIQUE,
+    `new_word_count` INT DEFAULT 50,
+    `review_ratio` INT DEFAULT 1,
+    `card_order` VARCHAR(20) DEFAULT 'random',
+    `large_font` TINYINT(1) DEFAULT 0,
+    `dark_mode` TINYINT(1) DEFAULT 0,
+    `exam_date` VARCHAR(20) DEFAULT '',
+    `selected_book_id` BIGINT DEFAULT NULL,
+    `created_at` DATETIME(6) DEFAULT NULL,
+    `updated_at` DATETIME(6) DEFAULT NULL,
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
