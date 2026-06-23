@@ -1,7 +1,9 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useWordStore } from '../stores/word'
 
+const router = useRouter()
 const store = useWordStore()
 
 const gradients = [
@@ -38,7 +40,7 @@ const intensity = computed(() => {
 })
 
 function selectBook(book) {
-  store.selectBook(book.id)
+  router.push(`/book/${book.id}`)
 }
 </script>
 

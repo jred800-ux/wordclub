@@ -38,6 +38,12 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/book/:bookId',
+    name: 'BookWords',
+    component: () => import('../views/BookWords.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/library',
     name: 'BookLibrary',
     component: () => import('../views/BookLibrary.vue'),

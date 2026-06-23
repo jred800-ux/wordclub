@@ -33,7 +33,7 @@ wordclub/
 │       ├── components/      # AppSidebar
 │       ├── router/          # Vue Router + 登录守卫
 │       ├── stores/          # Pinia (auth.js + word.js)
-│       └── views/           # 8 个页面
+│       └── views/           # 9 个页面（含词书单词列表 BookWords）
 ├── android/                 # Android 原生 App (Jetpack Compose)
 ├── docs/                    # 功能需求文档
 └── pom.xml                  # Maven
@@ -171,9 +171,10 @@ cd android && ./gradlew installDebug
 ## 项目状态
 
 - ✅ 后端骨架 + 认证系统 + 安全防护
-- ✅ Web 前端 8 页 + Android App 8 页
+- ✅ Web 前端 9 页 + Android App 8 页
 - ✅ 10 万单词语料库 + JPA 实体映射
 - ✅ 词书选择 + 分页/搜索 API
+- ✅ 词书点击查看单词列表（/book/:id）
 - ✅ SM-2 间隔复习 + 学习统计 + 收藏
 - ✅ Material Icons 本地化（国内可用）
 - ⬜ Android 端对接新单词 API
