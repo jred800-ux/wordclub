@@ -51,7 +51,17 @@ public class RateLimitService {
      * - 3600 秒内最多 5 次
      */
     public void checkRegister(String ip) {
-        check("register:min", ip, 1, 60);    // 每分钟 1 次
-        check("register:hour", ip, 5, 3600);  // 每小时 5 次
+        check("register:min", ip, 1, 60);
+        check("register:hour", ip, 5, 3600);
+    }
+
+    /**
+     * 发送验证码接口专用限流：
+     * - 60 秒内最多 1 次（防轰炸）
+     * - 3600 秒内最多 10 次
+     */
+    public void checkSendCode(String ip) {
+        check("sendcode:min", ip, 1, 60);
+        check("sendcode:hour", ip, 10, 3600);
     }
 }

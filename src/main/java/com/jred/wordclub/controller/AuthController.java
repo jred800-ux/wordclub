@@ -7,8 +7,11 @@ import com.jred.wordclub.dto.AuthResponse;
 import com.jred.wordclub.dto.LoginRequest;
 import com.jred.wordclub.dto.RegisterRequest;
 import com.jred.wordclub.entity.User;
+import com.jred.wordclub.dto.SendCodeRequest;
+import com.jred.wordclub.service.MailService;
 import com.jred.wordclub.service.RateLimitService;
 import com.jred.wordclub.service.UserService;
+import com.jred.wordclub.service.VerificationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +24,8 @@ public class AuthController {
 
     private final UserService userService;
     private final RateLimitService rateLimitService;
+    private final VerificationService verificationService;
+    private final MailService mailService;
     private final HttpServletRequest request;
 
     @PostMapping("/login")
@@ -37,9 +42,21 @@ public class AuthController {
         return Result.ok(new AuthResponse(token, AuthResponse.UserInfo.from(user)));
     }
 
+    @PostMapping("/send-code")
+    public Result<?> sendCode(@Valid @RequestBody SendCodeRequest req) {
+        rateLimitService.checkSendCode(getClientIp());
+        String code = verificationService.generateCode();
+        verificationService.saveCode(req.getEmail(), code);
+        mailService.sendVerifyCode(req.getEmail(), code);
+        return Result.ok();
+    }
+
     @PostMapping("/register")
     public Result<?> register(@Valid @RequestBody RegisterRequest req) {
         rateLimitService.checkRegister(getClientIp());
+        if (!verificationService.verify(req.getEmail(), req.getCode())) {
+            return Result.error(400, "验证码错误或已过期");
+        }
         userService.register(req.getUsername(), req.getEmail(), req.getPassword());
         return Result.ok();
     }

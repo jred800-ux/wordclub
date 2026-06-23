@@ -19,4 +19,7 @@ public class RegisterRequest {
     @NotBlank(message = "密码不能为空")
     @Size(min = 6, message = "密码最少 6 位")
     private String password;
+
+    @NotBlank(message = "验证码不能为空")
+    private String code;
 }
