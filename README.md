@@ -83,7 +83,7 @@ wordclub/
 
 | 页面 | 路由 (Web) | 路由 (Android) | 认证 | 功能 |
 |------|-----------|----------------|------|------|
-| 登录 | `/login` | `login` | 游客 | 用户名+密码登录，密码显隐切换，错误提示 |
+| 登录 | `/login` | `login` | 游客 | 邮箱+密码登录，密码显隐切换，错误提示 |
 | 注册 | `/register` | `register` | 游客 | 邮箱验证码 + 用户名 + 密码注册，60s 发送倒计时 |
 | 首页/控制台 | `/` | `home` | 需登录 | 欢迎页、快捷统计、学习模式入口、词库预览 |
 | 认读模式 | `/learn/first-sight` | `learn/first-sight` | 需登录 | 单词卡片 + 不认识/模糊/认识三键操作，支持发音、设置面板 |
@@ -98,7 +98,7 @@ wordclub/
 |------|------|------|------|
 | POST | `/api/auth/send-code` | 无 | 发送邮箱验证码（QQ SMTP，5 分钟有效） |
 | POST | `/api/auth/register` | 无 | 注册（username, email, password ≥6位, code） |
-| POST | `/api/auth/login` | 无 | 登录 → 返回 JWT token + 用户信息 |
+| POST | `/api/auth/login` | 无 | 邮箱+密码登录 → 返回 JWT token + 用户信息 |
 | POST | `/api/auth/logout` | 需登录 | 登出，清除 token |
 | GET | `/api/auth/me` | 需登录 | 获取当前登录用户信息 |
 | POST | `/api/auth/refresh` | 需登录 | 刷新 token 有效期 |
