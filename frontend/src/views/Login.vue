@@ -6,20 +6,20 @@ import { useAuthStore } from '../stores/auth'
 const router = useRouter()
 const authStore = useAuthStore()
 
-const form = ref({ username: '', password: '' })
+const form = ref({ email: '', password: '' })
 const showPassword = ref(false)
 const errorMsg = ref('')
 const loading = ref(false)
 
 async function handleLogin() {
   errorMsg.value = ''
-  if (!form.value.username || !form.value.password) {
-    errorMsg.value = '请填写用户名和密码'
+  if (!form.value.email || !form.value.password) {
+    errorMsg.value = '请填写邮箱和密码'
     return
   }
   loading.value = true
   try {
-    await authStore.login(form.value.username, form.value.password)
+    await authStore.login(form.value.email, form.value.password)
     router.push('/')
   } catch (e) {
     const data = e.response?.data
@@ -49,12 +49,12 @@ async function handleLogin() {
       <!-- Form -->
       <form @submit.prevent="handleLogin" class="auth-form">
         <div class="input-group">
-          <span class="material-icons input-icon">person</span>
+          <span class="material-icons input-icon">email</span>
           <input
-            v-model="form.username"
-            type="text"
-            placeholder="用户名"
-            autocomplete="username"
+            v-model="form.email"
+            type="email"
+            placeholder="邮箱"
+            autocomplete="email"
           />
         </div>
         <div class="input-group">

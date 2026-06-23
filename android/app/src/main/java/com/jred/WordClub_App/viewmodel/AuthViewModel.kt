@@ -46,14 +46,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun login(username: String, password: String) {
-        if (username.isBlank() || password.isBlank()) {
-            _uiState.value = _uiState.value.copy(error = "请填写用户名和密码")
+    fun login(email: String, password: String) {
+        if (email.isBlank() || password.isBlank()) {
+            _uiState.value = _uiState.value.copy(error = "请填写邮箱和密码")
             return
         }
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            repository.login(username, password).fold(
+            repository.login(email, password).fold(
                 onSuccess = { auth ->
                     _uiState.value = AuthUiState(isLoggedIn = true, user = auth.user)
                 },

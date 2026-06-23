@@ -3,7 +3,7 @@ package com.jred.WordClub_App.data.model
 import com.google.gson.annotations.SerializedName
 
 data class LoginRequest(
-    val username: String,
+    val email: String,
     val password: String
 )
 

@@ -8,9 +8,9 @@ class AuthRepository(private val tokenManager: TokenManager) {
 
     private val api = RetrofitClient.authApi
 
-    suspend fun login(username: String, password: String): Result<AuthResponse> {
+    suspend fun login(email: String, password: String): Result<AuthResponse> {
         return try {
-            val response = api.login(LoginRequest(username, password))
+            val response = api.login(LoginRequest(email, password))
             if (response.isSuccessful) {
                 val body = response.body()
                 if (body != null && body.code == 200 && body.data != null) {

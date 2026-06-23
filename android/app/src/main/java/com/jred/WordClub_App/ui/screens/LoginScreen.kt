@@ -29,7 +29,7 @@ fun LoginScreen(
     onNavigateToRegister: () -> Unit
 ) {
     val uiState by authViewModel.uiState.collectAsState()
-    var username by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
@@ -40,7 +40,7 @@ fun LoginScreen(
     }
 
     // Clear error when user types
-    LaunchedEffect(username, password) {
+    LaunchedEffect(email, password) {
         if (uiState.error != null) authViewModel.clearError()
     }
 
@@ -100,15 +100,15 @@ fun LoginScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                // Username
+                // Email
                 OutlinedTextField(
-                    value = username,
-                    onValueChange = { username = it },
-                    label = { Text("用户名") },
-                    leadingIcon = { Icon(Icons.Filled.Person, null, tint = Gray400) },
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("邮箱") },
+                    leadingIcon = { Icon(Icons.Filled.Email, null, tint = Gray400) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                     shape = MaterialTheme.shapes.medium,
                     colors = OutlinedTextFieldDefaults.colors(
@@ -149,7 +149,7 @@ fun LoginScreen(
 
                 // Login Button
                 Button(
-                    onClick = { authViewModel.login(username, password) },
+                    onClick = { authViewModel.login(email, password) },
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     enabled = !uiState.isLoading,
                     colors = ButtonDefaults.buttonColors(containerColor = Blue600),

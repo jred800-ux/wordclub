@@ -30,7 +30,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public Result<AuthResponse> login(@Valid @RequestBody LoginRequest req) {
-        User user = userService.findByUsername(req.getUsername());
+        User user = userService.findByEmail(req.getEmail());
         if (!user.getEnabled()) {
             return Result.error(403, "账户已被禁用");
         }
