@@ -11,12 +11,12 @@ wordclub/
 │       ├── java/com/jred/wordclub/
 │       │   ├── WordclubApplication.java
 │       │   ├── common/          # 统一响应 Result<T>
-│       │   ├── config/          # Sa-Token 路由拦截配置
-│       │   ├── controller/      # AuthController (登录/注册/登出/发验证码)
+│       │   ├── config/          # Sa-Token 路由拦截 / DataInitializer（种子数据）
+│       │   ├── controller/      # AuthController / WordController
 │       │   ├── dto/             # Request/Response 数据传输对象
-│       │   ├── entity/          # User JPA 实体
+│       │   ├── entity/          # User / Word JPA 实体
 │       │   ├── exception/       # GlobalExceptionHandler + RateLimitException
-│       │   ├── repository/      # UserRepository
+│       │   ├── repository/      # UserRepository / WordRepository
 │       │   └── service/         # UserService / MailService / VerificationService / RateLimitService
 │       └── resources/
 │           └── application.yaml
@@ -66,7 +66,7 @@ wordclub/
 | | Pinia | 3.x |
 | | Vue Router | 5.x |
 | | Axios | 1.x |
-| | Material Icons | Google Icons |
+| | Material Icons | material-design-icons-iconfont (本地) |
 | **Android** | Kotlin | 2.0.21 |
 | | Compose BOM | 2024.09 |
 | | AGP | 9.0.0-alpha06 |
@@ -102,6 +102,8 @@ wordclub/
 | POST | `/api/auth/logout` | 需登录 | 登出，清除 token |
 | GET | `/api/auth/me` | 需登录 | 获取当前登录用户信息 |
 | POST | `/api/auth/refresh` | 需登录 | 刷新 token 有效期 |
+| GET | `/api/words` | 需登录 | 获取全部单词列表 |
+| GET | `/api/words/{id}` | 需登录 | 获取单个单词详情 |
 
 **认证机制**：Sa-Token + JWT + Redis
 - Token 通过 `Authorization: Bearer <token>` 头传递
@@ -139,9 +141,10 @@ API 设计遵循 RESTful 风格，Web 前端通过 Vite proxy (`/api` → `local
 | Background | `#F9FAFB` | 页面背景 |
 | Surface | `#FFFFFF` | 卡片、面板背景 |
 
-- 字体：Inter（Web）/ System Default（Android）
+- 字体：Inter（Web 侧作为首选，fallback 到系统字体）/ System Default（Android）
 - 圆角：8–16px
-- 图标：Material Icons（Web 使用 Google Icons 字体，Android 使用 material-icons-extended）
+- 图标：Material Icons（Web 使用本地 npm 包 `material-design-icons-iconfont`，Android 使用 material-icons-extended）
+  > **注意**：Web 前端使用本地字体文件，不依赖 Google CDN，确保国内网络环境正常加载。
 
 ## 快速开始
 
@@ -167,14 +170,14 @@ mvnw.cmd spring-boot:run
 ./mvnw spring-boot:run
 ```
 
-后端默认运行在 `http://localhost:8080`，首次启动 JPA 自动建表。
+后端默认运行在 `http://localhost:8080`，首次启动 JPA 自动建表，并自动插入 20 条示例单词数据（CET-4/考研级别）。
 
 ### 3. Web 前端
 
 ```bash
 cd frontend
 
-# 安装依赖
+# 安装依赖（含 material-design-icons-iconfont）
 npm install
 
 # 启动开发服务器 (端口 5173)
@@ -228,6 +231,7 @@ adb shell am start -n com.jred.WordClub_App/.MainActivity
 - 全局异常处理在 `exception/GlobalExceptionHandler.java`（含 429 限流异常）
 - 验证码在 `service/VerificationService.java`（Redis 存储，5min TTL）
 - 邮件发送在 `service/MailService.java`（QQ SMTP 异步发信）
+- 种子数据在 `config/DataInitializer.java`（启动时检测空表自动插入）
 - 新 Controller 放在 `controller/`，Service 放 `service/`，Entity 放 `entity/`
 
 ### 前端开发
@@ -235,6 +239,7 @@ adb shell am start -n com.jred.WordClub_App/.MainActivity
 - 路由定义在 `frontend/src/router/index.js`（含 `beforeEach` 登录守卫）
 - 全局状态在 `frontend/src/stores/auth.js`（认证）和 `word.js`（业务）
 - 设计 Token 在 `frontend/src/style.css`（CSS 变量）
+- Material Icons 通过本地 npm 包加载，无需科学上网
 - API 封装在 `frontend/src/api/index.js`（请求拦截器自动带 Token，401 自动跳登录）
 - 游客页面（登录/注册）通过 `meta.guest: true` 标记，不渲染 AppShell
 
@@ -261,7 +266,8 @@ adb shell am start -n com.jred.WordClub_App/.MainActivity
 - ✅ Web 前端完整 UI（8 页面含登录/注册 + 路由守卫 + 认证状态管理）
 - ✅ Android App 完整 UI（8 页面含登录/注册 + 底部导航 + 认证状态管理）
 - ✅ 前后端联调（Auth API 全部验证通过）
-- ⬜ 单词数据库初始化
+- ✅ 单词数据库初始化（Word 实体 + 种子数据 + `/api/words` API）
+- ✅ Material Icons 本地化（npm 包替代 Google CDN，国内可用）
 - ⬜ 学习记录 API 实现
 
 ## 设计稿来源
