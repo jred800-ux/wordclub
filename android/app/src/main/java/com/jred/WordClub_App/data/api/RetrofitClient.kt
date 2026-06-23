@@ -12,8 +12,8 @@ import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
 
-    // TODO: 部署时改为实际服务器地址（10.0.2.2 是 Android 模拟器访问宿主机的地址）
-    private const val BASE_URL = "http://10.0.2.2:8080/api/"
+    // 真机: ADB reverse tcp:8080 → 127.0.0.1   模拟器: 10.0.2.2
+    private const val BASE_URL = "http://127.0.0.1:8080/api/"
 
     private var tokenManager: TokenManager? = null
 
