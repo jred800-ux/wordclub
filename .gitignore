@@ -54,6 +54,10 @@ captures/
 .idea/gradle.xml
 .idea/assetWizardSettings.xml
 
+### Data files (vocabulary DB, too large for git) ###
+data/
+
 ### Node / Vue ###
 frontend/node_modules/
 frontend/dist/
+dump.rdb

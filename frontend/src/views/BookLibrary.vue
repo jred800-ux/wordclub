@@ -1,15 +1,18 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useWordStore } from '../stores/word'
 
 const store = useWordStore()
 
-const courses = [
-  { id: 'cet4', name: 'CET-4', vocab: 4500, status: '未开始', gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', icon: 'school' },
-  { id: 'cet6', name: 'CET-6', vocab: 6000, status: '学习中', gradient: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)', icon: 'menu_book' },
-  { id: 'postgrad', name: '考研英语', vocab: 5500, status: '未开始', gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', icon: 'auto_stories' },
-  { id: 'ielts', name: '雅思 IELTS', vocab: 8000, status: '未开始', gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', icon: 'flight_takeoff' },
+const gradients = [
+  'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+  'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+  'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+  'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+  'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
 ]
+const icons = ['school', 'menu_book', 'auto_stories', 'flight_takeoff', 'translate', 'psychology']
 
 const examDates = [
   { label: 'CET-4 (6月)', value: '2026-06-15' },
@@ -17,11 +20,13 @@ const examDates = [
   { label: '考研 (12月)', value: '2026-12-26' },
 ]
 
+onMounted(() => {
+  store.fetchBooks()
+})
+
 const estimatedDays = computed(() => {
-  if (!store.dailyGoal) return '--'
-  const selected = courses.find(c => c.status === '学习中')
-  const total = selected ? selected.vocab : 4500
-  return Math.ceil(total / store.dailyGoal)
+  if (!store.dailyGoal || !store.selectedBook) return '--'
+  return Math.ceil((store.selectedBook.vocCount || 0) / store.dailyGoal)
 })
 
 const intensity = computed(() => {
@@ -32,15 +37,14 @@ const intensity = computed(() => {
   return '轻松'
 })
 
-function selectCourse(course) {
-  courses.forEach(c => { c.status = c.id === course.id ? '学习中' : (c.status === '学习中' ? '未开始' : c.status) })
+function selectBook(book) {
+  store.selectBook(book.id)
 }
 </script>
 
 <template>
   <div class="book-library">
     <div class="library-grid">
-      <!-- Main content -->
       <div class="library-main">
         <div class="section-header">
           <h1>词库选择</h1>
@@ -49,28 +53,27 @@ function selectCourse(course) {
 
         <div class="course-grid">
           <button
-            v-for="course in courses"
-            :key="course.id"
+            v-for="(book, idx) in store.books"
+            :key="book.id"
             class="course-card"
-            :class="{ active: course.status === '学习中' }"
-            @click="selectCourse(course)"
+            :class="{ active: store.selectedBookId === book.id }"
+            @click="selectBook(book)"
           >
-            <div class="course-image" :style="{ background: course.gradient }">
-              <span class="material-icons">{{ course.icon }}</span>
-              <span class="course-status">{{ course.status }}</span>
+            <div class="course-image" :style="{ background: gradients[idx % gradients.length] }">
+              <span class="material-icons">{{ icons[idx % icons.length] }}</span>
+              <span class="course-status">{{ store.selectedBookId === book.id ? '学习中' : '可选' }}</span>
             </div>
             <div class="course-info">
               <span class="material-icons">menu_book</span>
               <div>
-                <strong>{{ course.name }}</strong>
-                <span class="vocab-count">{{ course.vocab.toLocaleString() }} 词</span>
+                <strong>{{ book.bookname }}</strong>
+                <span class="vocab-count">{{ (book.vocCount || 0).toLocaleString() }} 词</span>
               </div>
             </div>
           </button>
         </div>
       </div>
 
-      <!-- Sidebar Plan -->
       <aside class="plan-sidebar">
         <div class="plan-card">
           <h3>个性化你的学习计划</h3>
@@ -110,12 +113,12 @@ function selectCourse(course) {
             <div class="overview-item">
               <span class="material-icons">menu_book</span>
               <span>已选书籍</span>
-              <strong class="ov-right">{{ courses.find(c => c.status === '学习中')?.name || '—' }}</strong>
+              <strong class="ov-right">{{ store.selectedBook?.bookname || '—' }}</strong>
             </div>
             <div class="overview-item">
               <span class="material-icons">format_list_numbered</span>
               <span>总词数</span>
-              <strong class="ov-right">{{ courses.find(c => c.status === '学习中')?.vocab?.toLocaleString() || '0' }}</strong>
+              <strong class="ov-right">{{ (store.selectedBook?.vocCount || 0).toLocaleString() }}</strong>
             </div>
             <div class="overview-item">
               <span class="material-icons">speed</span>
@@ -147,7 +150,6 @@ function selectCourse(course) {
   margin: 0 auto;
 }
 
-/* Section header */
 .section-header {
   margin-bottom: 24px;
 }
@@ -162,7 +164,6 @@ function selectCourse(course) {
   color: var(--color-text-secondary);
 }
 
-/* Course Grid */
 .course-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -226,7 +227,6 @@ function selectCourse(course) {
   color: var(--color-text-secondary);
 }
 
-/* Plan Sidebar */
 .plan-sidebar {
   position: sticky;
   top: 72px;

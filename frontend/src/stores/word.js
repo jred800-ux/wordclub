@@ -8,61 +8,152 @@ export const useWordStore = defineStore('word', () => {
   const loading = ref(false)
   const error = ref(null)
 
-  // Learning progress
+  // Books
+  const books = ref([])
+  const selectedBookId = ref(null)
+
+  // Pagination
+  const currentPage = ref(0)
+  const totalPages = ref(0)
+  const totalElements = ref(0)
+
+  // Learning progress (server-side)
   const masteredIds = ref(new Set())
   const fuzzyIds = ref(new Set())
   const unknownIds = ref(new Set())
 
   // Settings
-  const cardOrder = ref('random')  // 'alphabetical' | 'random'
+  const cardOrder = ref('random')
   const largeFont = ref(false)
   const darkMode = ref(false)
   const dailyGoal = ref(20)
   const examDate = ref('')
 
-  // Stats
-  const todayLearned = ref(50)
-  const todayMinutes = ref(45)
-  const streakDays = ref(15)
+  // Stats (from API)
+  const todayLearned = ref(0)
+  const todayMinutes = ref(0)
+  const streakDays = ref(0)
+  const masteredCount = ref(0)
 
-  // ----- Computed -----
-  const currentWord = computed(() => words.value[currentIndex.value] || null)
-  const totalWords = computed(() => words.value.length)
-  const progress = computed(() => {
-    if (!totalWords.value) return 0
-    return masteredIds.value.size + fuzzyIds.value.size + unknownIds.value.size
+  // --- Computed ---
+
+  const currentWord = computed(() => {
+    const w = words.value[currentIndex.value]
+    if (!w) return null
+    // Normalize fields for backward compatibility
+    return {
+      ...w,
+      meaning: w.paraphrase || w.meaning,
+      phonetic: w.ukPhonetic || w.phonetic || '',
+      usPhonetic: w.usPhonetic || '',
+      partOfSpeech: w.partOfSpeech || extractPos(w.paraphrase),
+    }
   })
+
+  const totalWords = computed(() => words.value.length)
+  const progress = computed(() => masteredIds.value.size + fuzzyIds.value.size + unknownIds.value.size)
   const progressPercent = computed(() => {
     if (!totalWords.value) return 0
     return Math.round((progress.value / totalWords.value) * 100)
   })
 
-  // ----- Actions -----
-  async function fetchWords() {
+  const selectedBook = computed(() => books.value.find(b => b.id === selectedBookId.value))
+
+  // --- Actions ---
+
+  async function fetchBooks() {
+    try {
+      const data = await api.get('/books')
+      books.value = data.data || data || []
+    } catch (e) {
+      console.error('[WordStore] fetchBooks:', e.message)
+    }
+  }
+
+  function selectBook(bookId) {
+    selectedBookId.value = bookId
+    currentIndex.value = 0
+    currentPage.value = 0
+    words.value = []
+    fetchWords()
+  }
+
+  async function fetchWords(page = 0, size = 20) {
     loading.value = true
     error.value = null
     try {
-      const data = await api.get('/words')
-      words.value = Array.isArray(data) ? data : (data.content || data.data || [])
+      let url = `/vocabulary?page=${page}&size=${size}`
+      if (selectedBookId.value) url += `&bookId=${selectedBookId.value}`
+      const data = await api.get(url)
+      const pageData = data.data || data
+      words.value = pageData.content || []
+      currentPage.value = pageData.number ?? page
+      totalPages.value = pageData.totalPages ?? 0
+      totalElements.value = pageData.totalElements ?? words.value.length
     } catch (e) {
       error.value = e.message
-      // Fallback demo data
-      words.value = [
-        { id: 1, spelling: 'persistent', meaning: '坚持不懈的；执着的', phonetic: "/pərˈsɪstənt/", partOfSpeech: 'adjective', root: 'sist', prefix: 'per-', suffix: '-ent' },
-        { id: 2, spelling: 'elaborate', meaning: '精心制作的；详细阐述', phonetic: "/ɪˈlæbərət/", partOfSpeech: 'adjective, verb', root: 'labor', prefix: 'e-', suffix: '-ate' },
-        { id: 3, spelling: 'substantial', meaning: '大量的；实质的', phonetic: "/səbˈstænʃəl/", partOfSpeech: 'adjective', root: 'stant', prefix: 'sub-', suffix: '-ial' },
-        { id: 4, spelling: 'consequence', meaning: '结果；重要性', phonetic: "/ˈkɑːnsɪkwens/", partOfSpeech: 'noun', root: 'sequ', prefix: 'con-', suffix: '-ence' },
-        { id: 5, spelling: 'predominant', meaning: '主要的；占优势的', phonetic: "/prɪˈdɑːmɪnənt/", partOfSpeech: 'adjective', root: 'domin', prefix: 'pre-', suffix: '-ant' },
-      ]
+      console.error('[WordStore] fetchWords:', e.message)
     } finally {
       loading.value = false
     }
   }
 
+  async function fetchWordDetail(id) {
+    try {
+      const data = await api.get(`/vocabulary/${id}`)
+      return data.data || data
+    } catch (e) {
+      console.error('[WordStore] fetchWordDetail:', e.message)
+      return null
+    }
+  }
+
+  async function fetchStats() {
+    try {
+      const data = await api.get('/learning/stats')
+      const stats = data.data || {}
+      todayLearned.value = stats.todayLearned || 0
+      masteredCount.value = stats.mastered || 0
+    } catch (e) {
+      console.error('[WordStore] fetchStats:', e.message)
+    }
+  }
+
+  async function recordReview(wordId, quality) {
+    try {
+      await api.post('/learning/review', {
+        wordId,
+        bookId: selectedBookId.value,
+        quality,
+      })
+    } catch (e) {
+      console.error('[WordStore] recordReview:', e.message)
+    }
+  }
+
+  // --- Favorites ---
+
+  async function toggleFavorite(wordId) {
+    try {
+      const check = await api.get(`/learning/favorites/${wordId}/check`)
+      const isFav = check.data || check
+      if (isFav) {
+        await api.delete(`/learning/favorites/${wordId}`)
+      } else {
+        await api.post(`/learning/favorites/${wordId}`)
+      }
+    } catch (e) {
+      console.error('[WordStore] toggleFavorite:', e.message)
+    }
+  }
+
+  // --- Local Learning Actions ---
+
   function markMastered(word) {
     masteredIds.value.add(word.id)
     fuzzyIds.value.delete(word.id)
     unknownIds.value.delete(word.id)
+    recordReview(word.id, 5)
     nextWord()
   }
 
@@ -70,6 +161,7 @@ export const useWordStore = defineStore('word', () => {
     fuzzyIds.value.add(word.id)
     masteredIds.value.delete(word.id)
     unknownIds.value.delete(word.id)
+    recordReview(word.id, 2)
     nextWord()
   }
 
@@ -77,6 +169,7 @@ export const useWordStore = defineStore('word', () => {
     unknownIds.value.add(word.id)
     masteredIds.value.delete(word.id)
     fuzzyIds.value.delete(word.id)
+    recordReview(word.id, 0)
     nextWord()
   }
 
@@ -84,7 +177,13 @@ export const useWordStore = defineStore('word', () => {
     if (currentIndex.value < words.value.length - 1) {
       currentIndex.value++
     } else {
-      currentIndex.value = 0
+      if (currentPage.value + 1 < totalPages.value) {
+        fetchWords(currentPage.value + 1).then(() => {
+          currentIndex.value = 0
+        })
+      } else {
+        currentIndex.value = 0
+      }
     }
   }
 
@@ -104,13 +203,25 @@ export const useWordStore = defineStore('word', () => {
     darkMode.value = !darkMode.value
   }
 
+  // --- Helpers ---
+
+  function extractPos(paraphrase) {
+    if (!paraphrase) return ''
+    const match = paraphrase.match(/^([a-z]+)\.?\s/i)
+    return match ? match[1] : ''
+  }
+
   return {
     words, currentIndex, loading, error,
+    books, selectedBookId, selectedBook,
+    currentPage, totalPages, totalElements,
     masteredIds, fuzzyIds, unknownIds,
     cardOrder, largeFont, darkMode, dailyGoal, examDate,
-    todayLearned, todayMinutes, streakDays,
+    todayLearned, todayMinutes, streakDays, masteredCount,
     currentWord, totalWords, progress, progressPercent,
-    fetchWords, markMastered, markFuzzy, markUnknown,
+    fetchBooks, selectBook, fetchWords, fetchWordDetail, fetchStats,
+    recordReview, toggleFavorite,
+    markMastered, markFuzzy, markUnknown,
     skipWord, nextWord, setOrder,
     toggleLargeFont, toggleDarkMode,
   }

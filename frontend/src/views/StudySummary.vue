@@ -1,11 +1,14 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useWordStore } from '../stores/word'
 
 const store = useWordStore()
 const shared = ref(false)
 
-// Heatmap data: 7 rows (days of week) x 15 weeks
+onMounted(() => {
+  store.fetchStats()
+})
+
 const weeks = 15
 const heatmapData = ref(generateHeatmap())
 
@@ -35,14 +38,12 @@ function handleShare() {
 
 <template>
   <div class="study-summary">
-    <!-- Celebration Card -->
     <div class="celebration-card">
       <span class="material-icons celebration-icon">celebration</span>
-      <h2>恭喜！</h2>
+      <h2>恭喜!</h2>
       <p>今日目标已达成。</p>
     </div>
 
-    <!-- Stats Row -->
     <div class="stats-row">
       <div class="stat-card">
         <span class="material-icons stat-icon" style="color: #3b82f6;">menu_book</span>
@@ -61,7 +62,6 @@ function handleShare() {
       </div>
     </div>
 
-    <!-- Heatmap -->
     <div class="heatmap-card">
       <h3 class="card-title">学习热力图</h3>
       <div class="heatmap-container">
@@ -88,13 +88,11 @@ function handleShare() {
       </div>
     </div>
 
-    <!-- Share -->
     <button class="share-btn" @click="handleShare" :class="{ shared }">
       <span class="material-icons">share</span>
-      {{ shared ? '已分享！' : '打卡并分享' }}
+      {{ shared ? '已分享!' : '打卡并分享' }}
     </button>
 
-    <!-- Quote -->
     <div class="quote-block">
       <blockquote>
         "语言的边界，即是世界的边界。"
@@ -111,7 +109,6 @@ function handleShare() {
   padding: 32px 20px;
 }
 
-/* Celebration Card */
 .celebration-card {
   text-align: center;
   padding: 32px 20px;
@@ -135,7 +132,6 @@ function handleShare() {
   color: var(--color-text-secondary);
 }
 
-/* Stats Row */
 .stats-row {
   display: flex;
   gap: 12px;
@@ -165,7 +161,6 @@ function handleShare() {
   color: var(--color-text-secondary);
 }
 
-/* Heatmap */
 .heatmap-card {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
@@ -207,7 +202,6 @@ function handleShare() {
   border-radius: 2px;
 }
 
-/* Share Button */
 .share-btn {
   display: flex;
   align-items: center;
@@ -231,7 +225,6 @@ function handleShare() {
   background: var(--color-success);
 }
 
-/* Quote */
 .quote-block {
   text-align: center;
   padding: 20px 0;

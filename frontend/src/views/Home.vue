@@ -4,8 +4,14 @@ import { useWordStore } from '../stores/word'
 
 const store = useWordStore()
 
-onMounted(() => {
-  if (!store.words.length) store.fetchWords()
+onMounted(async () => {
+  await store.fetchBooks()
+  store.fetchStats()
+  if (!store.words.length && !store.selectedBookId && store.books.length) {
+    store.selectBook(store.books[0].id)
+  } else if (!store.words.length) {
+    store.fetchWords()
+  }
 })
 </script>
 
@@ -13,7 +19,7 @@ onMounted(() => {
   <div class="home-dashboard">
     <!-- Hero -->
     <div class="hero-banner">
-      <h1>欢迎回来 👋</h1>
+      <h1>欢迎回来</h1>
       <p>继续你的词汇精进之旅。</p>
       <router-link to="/learn/first-sight" class="hero-cta">
         开始学习
@@ -65,7 +71,7 @@ onMounted(() => {
         >
           {{ w.spelling }}
         </span>
-        <router-link to="/library" class="view-all">查看全部 →</router-link>
+        <router-link to="/library" class="view-all">查看全部</router-link>
       </div>
     </div>
   </div>
@@ -78,7 +84,6 @@ onMounted(() => {
   padding: 32px 20px;
 }
 
-/* Hero */
 .hero-banner {
   text-align: center;
   padding: 48px 20px;
@@ -112,7 +117,6 @@ onMounted(() => {
 }
 .hero-cta:hover { background: var(--color-primary-dark); }
 
-/* Quick Stats */
 .quick-stats {
   display: flex;
   gap: 16px;
@@ -137,7 +141,6 @@ onMounted(() => {
   margin-top: 2px;
 }
 
-/* Mode Section */
 .mode-section h2 {
   font-size: 18px;
   font-weight: 600;
@@ -183,7 +186,6 @@ onMounted(() => {
   color: var(--color-text-secondary);
 }
 
-/* Recent Words */
 .recent-section h2 {
   font-size: 18px;
   font-weight: 600;
