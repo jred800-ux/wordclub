@@ -12,12 +12,12 @@ wordclub/
 │       │   ├── WordclubApplication.java
 │       │   ├── common/          # 统一响应 Result<T>
 │       │   ├── config/          # Sa-Token 路由拦截配置
-│       │   ├── controller/      # AuthController (登录/注册/登出)
-│       │   ├── dto/             # LoginRequest, RegisterRequest, AuthResponse
+│       │   ├── controller/      # AuthController (登录/注册/登出/发验证码)
+│       │   ├── dto/             # Request/Response 数据传输对象
 │       │   ├── entity/          # User JPA 实体
-│       │   ├── exception/       # GlobalExceptionHandler
+│       │   ├── exception/       # GlobalExceptionHandler + RateLimitException
 │       │   ├── repository/      # UserRepository
-│       │   └── service/         # UserService (BCrypt 密码处理)
+│       │   └── service/         # UserService / MailService / VerificationService / RateLimitService
 │       └── resources/
 │           └── application.yaml
 ├── frontend/                # Vue 3 Web 前端
@@ -59,6 +59,7 @@ wordclub/
 | | Sa-Token JWT 插件 | 1.44.0 |
 | | Sa-Token Redis 插件 | 1.44.0 |
 | | BCrypt | spring-security-crypto |
+| | Java Mail (QQ SMTP) | spring-boot-starter-mail |
 | | Maven | Wrapper 自带 |
 | **Web 前端** | Vue | 3.5 |
 | | Vite | 8.x |
@@ -83,7 +84,7 @@ wordclub/
 | 页面 | 路由 (Web) | 路由 (Android) | 认证 | 功能 |
 |------|-----------|----------------|------|------|
 | 登录 | `/login` | `login` | 游客 | 用户名+密码登录，密码显隐切换，错误提示 |
-| 注册 | `/register` | `register` | 游客 | 用户名+邮箱+密码注册，成功后跳转登录 |
+| 注册 | `/register` | `register` | 游客 | 邮箱验证码 + 用户名 + 密码注册，60s 发送倒计时 |
 | 首页/控制台 | `/` | `home` | 需登录 | 欢迎页、快捷统计、学习模式入口、词库预览 |
 | 认读模式 | `/learn/first-sight` | `learn/first-sight` | 需登录 | 单词卡片 + 不认识/模糊/认识三键操作，支持发音、设置面板 |
 | 拼写模式 | `/learn/spelling` | `learn/spelling` | 需登录 | 看释义拼写单词，字母提示，正确/错误反馈 |
@@ -95,7 +96,8 @@ wordclub/
 
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
-| POST | `/api/auth/register` | 无 | 注册（username, email, password ≥6位） |
+| POST | `/api/auth/send-code` | 无 | 发送邮箱验证码（QQ SMTP，5 分钟有效） |
+| POST | `/api/auth/register` | 无 | 注册（username, email, password ≥6位, code） |
 | POST | `/api/auth/login` | 无 | 登录 → 返回 JWT token + 用户信息 |
 | POST | `/api/auth/logout` | 需登录 | 登出，清除 token |
 | GET | `/api/auth/me` | 需登录 | 获取当前登录用户信息 |
@@ -107,10 +109,20 @@ wordclub/
 - 支持多端同时登录（最多 3 设备）
 - 路由拦截：`/api/auth/**` 放行，其余 `/api/**` 需登录
 
+**防滥用机制**：
+
+| 防护 | 实现 | 规则 |
+|------|------|------|
+| IP 限流（注册） | Redis 计数器 + TTL | 60s 内 1 次，1h 内 5 次 |
+| IP 限流（发验证码） | Redis 计数器 + TTL | 60s 内 1 次，1h 内 10 次 |
+| 邮箱验证 | QQ SMTP + Redis 验证码 | 6 位数字码，5 分钟过期，一次有效 |
+| 密码加密 | BCrypt | 最少 6 位 |
+
 **统一响应格式**：
 ```json
 { "code": 200, "message": "success", "data": { ... } }
 ```
+错误码：`400` 参数/业务错误，`401` 未登录，`403` 禁用，`429` 频率限制。
 
 API 设计遵循 RESTful 风格，Web 前端通过 Vite proxy (`/api` → `localhost:8080`) 访问后端。
 
@@ -213,7 +225,9 @@ adb shell am start -n com.jred.WordClub_App/.MainActivity
 
 - 统一响应格式 `Result<T>` 在 `common/Result.java`（code/message/data）
 - 认证使用 Sa-Token，路由拦截在 `config/SaTokenConfig.java`
-- 全局异常处理在 `exception/GlobalExceptionHandler.java`
+- 全局异常处理在 `exception/GlobalExceptionHandler.java`（含 429 限流异常）
+- 验证码在 `service/VerificationService.java`（Redis 存储，5min TTL）
+- 邮件发送在 `service/MailService.java`（QQ SMTP 异步发信）
 - 新 Controller 放在 `controller/`，Service 放 `service/`，Entity 放 `entity/`
 
 ### 前端开发
@@ -243,6 +257,7 @@ adb shell am start -n com.jred.WordClub_App/.MainActivity
 
 - ✅ 后端骨架（Spring Boot + MySQL + Redis）
 - ✅ 用户认证系统（注册/登录/登出 + Sa-Token JWT + BCrypt）
+- ✅ 安全防护（Redis IP 限流 + QQ 邮箱验证码 + BCrypt 加密）
 - ✅ Web 前端完整 UI（8 页面含登录/注册 + 路由守卫 + 认证状态管理）
 - ✅ Android App 完整 UI（8 页面含登录/注册 + 底部导航 + 认证状态管理）
 - ✅ 前后端联调（Auth API 全部验证通过）
