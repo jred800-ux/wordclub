@@ -1,6 +1,7 @@
 /* ===== Lumina Learning Design System ===== */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+/* Inter font: use system fonts as primary (no Google CDN dependency) */
+/* Material Icons: served locally to avoid Google CDN blocking in China */
+@import 'material-design-icons-iconfont/dist/material-design-icons.css';
 
 :root {
   /* Primary palette */
