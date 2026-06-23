@@ -7,7 +7,9 @@ import com.jred.wordclub.dto.AuthResponse;
 import com.jred.wordclub.dto.LoginRequest;
 import com.jred.wordclub.dto.RegisterRequest;
 import com.jred.wordclub.entity.User;
+import com.jred.wordclub.service.RateLimitService;
 import com.jred.wordclub.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -18,6 +20,8 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final UserService userService;
+    private final RateLimitService rateLimitService;
+    private final HttpServletRequest request;
 
     @PostMapping("/login")
     public Result<AuthResponse> login(@Valid @RequestBody LoginRequest req) {
@@ -35,8 +39,25 @@ public class AuthController {
 
     @PostMapping("/register")
     public Result<?> register(@Valid @RequestBody RegisterRequest req) {
+        rateLimitService.checkRegister(getClientIp());
         userService.register(req.getUsername(), req.getEmail(), req.getPassword());
         return Result.ok();
+    }
+
+    /** 获取客户端真实 IP（优先取反向代理头） */
+    private String getClientIp() {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isBlank()) {
+            ip = request.getHeader("X-Real-IP");
+        }
+        if (ip == null || ip.isBlank()) {
+            ip = request.getRemoteAddr();
+        }
+        // 多级代理取第一个
+        if (ip != null && ip.contains(",")) {
+            ip = ip.split(",")[0].trim();
+        }
+        return ip;
     }
 
     @PostMapping("/logout")

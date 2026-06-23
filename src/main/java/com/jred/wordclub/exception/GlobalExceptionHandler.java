@@ -28,6 +28,13 @@ public class GlobalExceptionHandler {
         return Result.error(400, message);
     }
 
+    @ExceptionHandler(RateLimitException.class)
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    public Result<?> handleRateLimit(RateLimitException e) {
+        log.warn("频率限制: {}", e.getMessage());
+        return Result.error(429, e.getMessage());
+    }
+
     @ExceptionHandler(RuntimeException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<?> handleRuntime(RuntimeException e) {
