@@ -39,7 +39,7 @@ sa-token:
   token-name: Authorization
   token-prefix: Bearer
   timeout: 7200
-  activity-timeout: 259200
+  active-timeout: 259200
   is-concurrent: true
   max-login-count: 3
   is-log: true

@@ -6,14 +6,42 @@ import { useAuthStore } from '../stores/auth'
 const router = useRouter()
 const authStore = useAuthStore()
 
-const form = ref({ username: '', email: '', password: '' })
+const form = ref({ username: '', email: '', password: '', code: '' })
 const showPassword = ref(false)
 const errorMsg = ref('')
+const successMsg = ref('')
 const loading = ref(false)
+const sendingCode = ref(false)
+const countdown = ref(0)
+
+async function handleSendCode() {
+  errorMsg.value = ''
+  successMsg.value = ''
+  if (!form.value.email) {
+    errorMsg.value = '请先填写邮箱'
+    return
+  }
+  sendingCode.value = true
+  try {
+    await authStore.sendCode(form.value.email)
+    successMsg.value = '验证码已发送，请查收邮件'
+    countdown.value = 60
+    const timer = setInterval(() => {
+      countdown.value--
+      if (countdown.value <= 0) clearInterval(timer)
+    }, 1000)
+  } catch (e) {
+    const data = e.response?.data
+    errorMsg.value = data?.message || '发送失败，请稍后再试'
+  } finally {
+    sendingCode.value = false
+  }
+}
 
 async function handleRegister() {
   errorMsg.value = ''
-  if (!form.value.username || !form.value.email || !form.value.password) {
+  successMsg.value = ''
+  if (!form.value.username || !form.value.email || !form.value.password || !form.value.code) {
     errorMsg.value = '请填写所有字段'
     return
   }
@@ -23,7 +51,7 @@ async function handleRegister() {
   }
   loading.value = true
   try {
-    await authStore.register(form.value.username, form.value.email, form.value.password)
+    await authStore.register(form.value.username, form.value.email, form.value.password, form.value.code)
     router.push('/login?registered=1')
   } catch (e) {
     const data = e.response?.data
@@ -50,6 +78,12 @@ async function handleRegister() {
         {{ errorMsg }}
       </div>
 
+      <!-- Success -->
+      <div v-if="successMsg" class="success-banner">
+        <span class="material-icons">check_circle</span>
+        {{ successMsg }}
+      </div>
+
       <!-- Registered success hint -->
       <div v-if="$route.query.registered" class="success-banner">
         <span class="material-icons">check_circle</span>
@@ -74,6 +108,26 @@ async function handleRegister() {
             type="email"
             placeholder="邮箱"
             autocomplete="email"
+          />
+          <button
+            type="button"
+            class="send-code-btn"
+            :disabled="sendingCode || countdown > 0"
+            @click="handleSendCode"
+          >
+            <span v-if="sendingCode" class="spinner-small"></span>
+            <span v-else-if="countdown > 0">{{ countdown }}s</span>
+            <span v-else>发送验证码</span>
+          </button>
+        </div>
+        <div class="input-group">
+          <span class="material-icons input-icon">pin</span>
+          <input
+            v-model="form.code"
+            type="text"
+            placeholder="邮箱验证码"
+            maxlength="6"
+            autocomplete="one-time-code"
           />
         </div>
         <div class="input-group">
@@ -211,6 +265,39 @@ async function handleRegister() {
   color: var(--color-text-muted);
   pointer-events: none;
 }
+.send-code-btn {
+  position: absolute;
+  right: 4px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.send-code-btn:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: #fff;
+}
+.send-code-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.spinner-small {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(59,130,246,0.3);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  display: inline-block;
+}
+
 .toggle-pw {
   position: absolute;
   right: 4px;

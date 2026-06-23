@@ -30,8 +30,12 @@ export const useAuthStore = defineStore('auth', () => {
     return data
   }
 
-  async function register(username, email, password) {
-    await api.post('/auth/register', { username, email, password })
+  async function sendCode(email) {
+    await api.post('/auth/send-code', { email })
+  }
+
+  async function register(username, email, password, code) {
+    await api.post('/auth/register', { username, email, password, code })
   }
 
   async function logout() {
@@ -52,6 +56,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     user, token, isLoggedIn,
-    init, login, register, logout, fetchUser,
+    init, login, register, logout, fetchUser, sendCode,
   }
 })
