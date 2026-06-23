@@ -56,6 +56,7 @@ captures/
 
 ### Data files (vocabulary DB, too large for git) ###
 data/
+!data/init-user-tables.sql
 
 ### Node / Vue ###
 frontend/node_modules/

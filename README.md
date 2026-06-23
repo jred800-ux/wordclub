@@ -25,7 +25,8 @@ wordclub/
 │   ├── tb_vocabulary.*      # 10.4 万单词
 │   ├── tb_book.*            # 6 本词书
 │   ├── tb_voc_book.*        # 3.5 万词书关联
-│   └── tb_voc_examples.*    # 14.2 万例句
+│   ├── tb_voc_examples.*    # 14.2 万例句
+│   └── init-user-tables.sql # 学习进度/收藏建表脚本
 ├── frontend/                # Vue 3 Web 前端
 │   └── src/
 │       ├── api/             # Axios 封装 + Token 拦截器
@@ -63,8 +64,8 @@ MySQL `wordclub` 库，7 张表：
 | `tb_voc_book` | 34,748 | 单词↔词书关联 |
 | `tb_voc_examples` | 141,775 | 英文例句 + 中文翻译 |
 | `users` | — | 用户表 |
-| `user_word_progress` | — | SM-2 学习进度 (auto DDL) |
-| `user_favorites` | — | 用户收藏 (auto DDL) |
+| `user_word_progress` | — | SM-2 学习进度 (需手动建表) |
+| `user_favorites` | — | 用户收藏 (需手动建表) |
 
 **导入语料库**（仅首次，SQL 在 `data/` 目录）：
 ```bash
@@ -72,6 +73,8 @@ mysql -u root -p123123 wordclub < data/tb_book.sql
 mysql -u root -p123123 wordclub < data/tb_vocabulary.sql
 mysql -u root -p123123 wordclub < data/tb_voc_book.sql
 mysql -u root -p123123 --default-character-set=utf8mb4 wordclub -e "source data/tb_voc_examples.sql"
+# 创建学习进度和收藏表（仅首次）
+mysql -u root -p123123 wordclub < data/init-user-tables.sql
 ```
 
 ## 后端 API
@@ -135,13 +138,14 @@ for f in tb_book.sql tb_vocabulary.sql tb_voc_book.sql; do
   mysql -u root -p123123 wordclub < $f
 done
 mysql -u root -p123123 --default-character-set=utf8mb4 wordclub -e "source tb_voc_examples.sql"
+mysql -u root -p123123 wordclub < init-user-tables.sql
 ```
 
 ### 后端
 ```bash
 ./mvnw spring-boot:run       # → localhost:8080
 ```
-首次启动 JPA 自动建 `user_word_progress` 和 `user_favorites` 表。
+首次启动前需手动创建学习进度和收藏表（或执行 `data/init-user-tables.sql`）。
 
 ### 前端
 ```bash
