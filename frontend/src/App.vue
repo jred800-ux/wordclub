@@ -1,66 +1,316 @@
 <script setup>
-import { RouterView } from 'vue-router'
+import { ref, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from './stores/auth'
+import AppSidebar from './components/AppSidebar.vue'
+
+const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
+const sidebarCollapsed = ref(false)
+const showUserMenu = ref(false)
+
+const isGuestPage = computed(() => {
+  return ['Login', 'Register'].includes(route.name)
+})
+
+function handleLogout() {
+  showUserMenu.value = false
+  authStore.logout()
+  router.push('/login')
+}
 </script>
 
 <template>
-  <div id="app-container">
+  <!-- Guest pages (login/register) render without shell -->
+  <div v-if="isGuestPage" class="guest-layout">
+    <RouterView />
+  </div>
+
+  <!-- Authenticated layout with header + sidebar -->
+  <div v-else id="app-shell" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
+    <!-- Header -->
     <header class="app-header">
-      <router-link to="/" class="logo">WordClub</router-link>
-      <nav>
-        <router-link to="/">首页</router-link>
-        <router-link to="/words">单词列表</router-link>
+      <div class="header-left">
+        <button class="hamburger" @click="sidebarCollapsed = !sidebarCollapsed">
+          <span class="material-icons">menu</span>
+        </button>
+        <router-link to="/" class="brand">
+          <span class="brand-icon">W</span>
+          <span class="brand-text">WordClub</span>
+        </router-link>
+      </div>
+
+      <nav class="header-nav">
+        <router-link to="/">控制台</router-link>
+        <router-link to="/library">词库</router-link>
+        <router-link to="/summary">学习统计</router-link>
       </nav>
+
+      <div class="header-actions">
+        <button class="icon-btn" title="搜索">
+          <span class="material-icons">search</span>
+        </button>
+        <button class="icon-btn has-badge" title="通知">
+          <span class="material-icons">notifications</span>
+          <span class="badge-dot"></span>
+        </button>
+
+        <!-- Logged in: user dropdown -->
+        <div v-if="authStore.isLoggedIn" class="user-menu-wrapper">
+          <div class="user-info" @click="showUserMenu = !showUserMenu">
+            <span class="material-icons">account_circle</span>
+            <span class="user-name">{{ authStore.user?.nickname || '用户' }}</span>
+            <span class="material-icons arrow" :class="{ open: showUserMenu }">arrow_drop_down</span>
+          </div>
+          <div v-if="showUserMenu" class="user-dropdown" @click.self="showUserMenu = false">
+            <div class="dropdown-item">
+              <span class="material-icons">person</span>
+              <span>个人信息</span>
+            </div>
+            <div class="dropdown-item" @click="handleLogout">
+              <span class="material-icons">logout</span>
+              <span>退出登录</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Not logged in: login button -->
+        <router-link v-else to="/login" class="login-btn">登录</router-link>
+      </div>
     </header>
-    <main>
-      <RouterView />
-    </main>
+
+    <div class="app-body">
+      <AppSidebar :collapsed="sidebarCollapsed" />
+      <main class="main-content">
+        <RouterView />
+      </main>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.app-header {
+/* ===== Guest Layout ===== */
+.guest-layout {
+  min-height: 100vh;
+}
+
+/* ===== Shell ===== */
+#app-shell {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-  height: 56px;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ===== Header ===== */
+.app-header {
   position: sticky;
   top: 0;
   z-index: 100;
-}
-
-.logo {
-  font-size: 20px;
-  font-weight: 700;
-  color: #1a73e8;
-  text-decoration: none;
-}
-
-nav {
   display: flex;
-  gap: 20px;
+  align-items: center;
+  height: var(--header-height);
+  padding: 0 20px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  gap: 16px;
 }
 
-nav a {
-  color: #555;
-  text-decoration: none;
-  font-size: 15px;
-  padding: 4px 0;
-  border-bottom: 2px solid transparent;
-  transition: color 0.2s, border-color 0.2s;
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
 }
 
-nav a:hover,
-nav a.router-link-exact-active {
-  color: #1a73e8;
-  border-bottom-color: #1a73e8;
+.hamburger {
+  display: none;
+  background: none;
+  border: none;
+  padding: 4px;
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+}
+.hamburger:hover {
+  background: var(--color-divider);
 }
 
-main {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 24px;
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-primary);
+  font-weight: 700;
+  font-size: 18px;
+}
+.brand-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--color-primary);
+  color: #fff;
+  border-radius: var(--radius-md);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.header-nav {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+.header-nav a {
+  padding: 6px 14px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, background 0.15s;
+}
+.header-nav a:hover {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+.header-nav a.router-link-exact-active {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.icon-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-full);
+  transition: background 0.15s;
+}
+.icon-btn:hover {
+  background: var(--color-divider);
+}
+
+.badge-dot {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  background: var(--color-danger);
+  border-radius: 50%;
+  border: 1.5px solid var(--color-surface);
+}
+
+/* Login button */
+.login-btn {
+  padding: 6px 18px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  transition: background 0.15s;
+}
+.login-btn:hover {
+  background: var(--color-primary-dark);
+}
+
+/* User menu */
+.user-menu-wrapper {
+  position: relative;
+}
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.user-info:hover {
+  background: var(--color-divider);
+}
+.user-info .material-icons {
+  font-size: 28px;
+  color: var(--color-text-muted);
+}
+.user-info .arrow {
+  font-size: 20px;
+  transition: transform 0.2s;
+}
+.user-info .arrow.open {
+  transform: rotate(180deg);
+}
+.user-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.user-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  min-width: 160px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 6px 0;
+  z-index: 200;
+}
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.dropdown-item:hover {
+  background: var(--color-divider);
+  color: var(--color-text-primary);
+}
+.dropdown-item .material-icons {
+  font-size: 18px;
+}
+
+/* ===== Body Layout ===== */
+.app-body {
+  display: flex;
+  flex: 1;
+}
+
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+  .hamburger {
+    display: flex;
+  }
+  .header-nav {
+    display: none;
+  }
+  .user-name {
+    display: none;
+  }
 }
 </style>

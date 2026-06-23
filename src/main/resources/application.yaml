@@ -1,3 +1,38 @@
 spring:
   application:
     name: wordclub
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/wordclub?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf-8
+    username: root
+    password: 123123
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+server:
+  port: 8080
+
+############## Sa-Token 配置 ##############
+sa-token:
+  token-name: Authorization
+  token-prefix: Bearer
+  timeout: 7200
+  activity-timeout: 259200
+  is-concurrent: true
+  max-login-count: 3
+  is-log: true
+  # JWT 密钥（32位+）
+  jwt-secret-key: wordclub_jwt_secret_key_2024_secure
