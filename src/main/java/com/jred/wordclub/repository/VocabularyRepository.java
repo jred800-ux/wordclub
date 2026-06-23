@@ -11,10 +11,13 @@ public interface VocabularyRepository extends JpaRepository<Vocabulary, Long> {
 
     Page<Vocabulary> findBySpellingContaining(String spelling, Pageable pageable);
 
-    @Query("SELECT v FROM Vocabulary v JOIN VocBook vb ON v.id = vb.wordId WHERE vb.bookId = :bookId")
+    @Query("SELECT v FROM Vocabulary v WHERE v.spelling LIKE CONCAT('%',:kw,'%') OR v.paraphrase LIKE CONCAT('%',:kw,'%')")
+    Page<Vocabulary> findBySpellingOrParaphrase(String kw, Pageable pageable);
+
+    @Query("SELECT v FROM Vocabulary v JOIN VocBook vb ON v.id = vb.wordId WHERE vb.bookId = :bookId ORDER BY v.id ASC")
     Page<Vocabulary> findByBookId(Long bookId, Pageable pageable);
 
-    @Query("SELECT v FROM Vocabulary v JOIN VocBook vb ON v.id = vb.wordId WHERE vb.bookId = :bookId")
+    @Query("SELECT v FROM Vocabulary v JOIN VocBook vb ON v.id = vb.wordId WHERE vb.bookId = :bookId ORDER BY v.id ASC")
     List<Vocabulary> findAllByBookId(Long bookId);
 
     @Query("SELECT COUNT(v) FROM Vocabulary v JOIN VocBook vb ON v.id = vb.wordId WHERE vb.bookId = :bookId")

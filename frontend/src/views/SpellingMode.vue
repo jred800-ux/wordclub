@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useWordStore } from '../stores/word'
 
 const store = useWordStore()
@@ -111,6 +111,13 @@ function playAudio() {
   u.rate = 0.8
   speechSynthesis.speak(u)
 }
+
+// Auto-play pronunciation when word changes
+watch(word, (newWord) => {
+  if (newWord) {
+    setTimeout(() => playAudio(), 300)
+  }
+})
 </script>
 
 <template>

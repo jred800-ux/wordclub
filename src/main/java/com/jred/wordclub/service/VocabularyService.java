@@ -41,7 +41,35 @@ public class VocabularyService {
     }
 
     public Page<Vocabulary> search(String keyword, Pageable pageable) {
-        return vocabularyRepository.findBySpellingContaining(keyword, pageable);
+        return vocabularyRepository.findBySpellingOrParaphrase(keyword, pageable);
+    }
+
+    public Map<String, Object> getBookProgress(Long userId, Long bookId) {
+        Map<String, Object> result = new HashMap<>();
+        long totalWords = vocabularyRepository.countByBookId(bookId);
+        result.put("totalWords", totalWords);
+        long studiedCount = progressRepository.countByUserIdAndBookId(userId, bookId);
+        result.put("studiedCount", studiedCount);
+        long masteredCount = progressRepository.countByUserIdAndBookIdAndStatus(userId, bookId, "MASTERED");
+        result.put("masteredCount", masteredCount);
+        double pct = totalWords > 0 ? Math.round(studiedCount * 1000.0 / totalWords) / 10.0 : 0;
+        result.put("completionPercent", pct);
+
+        Optional<UserWordProgress> last = progressRepository
+                .findFirstByUserIdAndBookIdOrderByUpdatedAtDesc(userId, bookId);
+        if (last.isPresent()) {
+            Long lastWordId = last.get().getWordId();
+            result.put("lastWordId", lastWordId);
+            List<Vocabulary> allWords = vocabularyRepository.findAllByBookId(bookId);
+            for (int i = 0; i < allWords.size(); i++) {
+                if (allWords.get(i).getId().equals(lastWordId)) {
+                    result.put("resumePage", i / 20);
+                    result.put("resumeIndex", i % 20);
+                    break;
+                }
+            }
+        }
+        return result;
     }
 
     public List<VocExample> getExamples(Long wordId) {

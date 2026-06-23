@@ -17,4 +17,10 @@ public interface UserWordProgressRepository extends JpaRepository<UserWordProgre
     long countByUserIdAndStatus(Long userId, String status);
 
     long countByUserIdAndCreatedAtAfter(Long userId, LocalDateTime since);
+
+    long countByUserIdAndBookId(Long userId, Long bookId);
+
+    long countByUserIdAndBookIdAndStatus(Long userId, Long bookId, String status);
+
+    Optional<UserWordProgress> findFirstByUserIdAndBookIdOrderByUpdatedAtDesc(Long userId, Long bookId);
 }

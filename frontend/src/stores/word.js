@@ -26,7 +26,8 @@ export const useWordStore = defineStore('word', () => {
   const cardOrder = ref('random')
   const largeFont = ref(false)
   const darkMode = ref(false)
-  const dailyGoal = ref(20)
+  const newWordCount = ref(50)
+  const reviewRatio = ref(1) // 1=1:1, 2=1:2, ..., 5=1:5
   const examDate = ref('')
 
   // Stats (from API)
@@ -36,6 +37,9 @@ export const useWordStore = defineStore('word', () => {
   const masteredCount = ref(0)
 
   // --- Computed ---
+
+  const dailyGoal = computed(() => newWordCount.value + newWordCount.value * reviewRatio.value)
+  const reviewWordCount = computed(() => newWordCount.value * reviewRatio.value)
 
   const currentWord = computed(() => {
     const w = words.value[currentIndex.value]
@@ -70,12 +74,34 @@ export const useWordStore = defineStore('word', () => {
     }
   }
 
-  function selectBook(bookId) {
+  const bookProgress = ref(null) // { totalWords, studiedCount, masteredCount, completionPercent, resumePage, resumeIndex, lastWordId }
+
+  async function selectBook(bookId, resume = true) {
     selectedBookId.value = bookId
     currentIndex.value = 0
     currentPage.value = 0
     words.value = []
-    fetchWords()
+    bookProgress.value = null
+
+    if (resume) {
+      try {
+        const data = await api.get(`/learning/progress/book/${bookId}`)
+        const prog = data.data || data
+        if (prog) {
+          bookProgress.value = prog
+          if (prog.resumePage != null) {
+            await fetchWords(prog.resumePage)
+            const idx = (prog.resumeIndex || 0) + 1
+            currentIndex.value = idx < words.value.length ? idx : 0
+            return
+          }
+        }
+      } catch (e) {
+        console.error('[WordStore] fetchBookProgress failed, starting fresh:', e)
+      }
+    }
+
+    await fetchWords(0)
   }
 
   async function fetchWords(page = 0, size = 20) {
@@ -216,7 +242,8 @@ export const useWordStore = defineStore('word', () => {
     books, selectedBookId, selectedBook,
     currentPage, totalPages, totalElements,
     masteredIds, fuzzyIds, unknownIds,
-    cardOrder, largeFont, darkMode, dailyGoal, examDate,
+    cardOrder, largeFont, darkMode, dailyGoal, reviewWordCount,
+    newWordCount, reviewRatio, examDate, bookProgress,
     todayLearned, todayMinutes, streakDays, masteredCount,
     currentWord, totalWords, progress, progressPercent,
     fetchBooks, selectBook, fetchWords, fetchWordDetail, fetchStats,

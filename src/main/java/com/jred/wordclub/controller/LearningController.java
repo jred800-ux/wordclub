@@ -47,6 +47,12 @@ public class LearningController {
                 .orElse(Result.ok(null));
     }
 
+    @GetMapping("/progress/book/{bookId}")
+    public Result<Map<String, Object>> bookProgress(@PathVariable Long bookId) {
+        long userId = StpUtil.getLoginIdAsLong();
+        return Result.ok(vocabularyService.getBookProgress(userId, bookId));
+    }
+
     @GetMapping("/favorites")
     public Result<List<UserFavorite>> favorites() {
         long userId = StpUtil.getLoginIdAsLong();

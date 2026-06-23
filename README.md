@@ -30,10 +30,10 @@ wordclub/
 ├── frontend/                # Vue 3 Web 前端
 │   └── src/
 │       ├── api/             # Axios 封装 + Token 拦截器
-│       ├── components/      # AppSidebar
+│       ├── components/      # SearchModal (搜索弹窗)
 │       ├── router/          # Vue Router + 登录守卫
 │       ├── stores/          # Pinia (auth.js + word.js)
-│       └── views/           # 9 个页面（含词书单词列表 BookWords）
+│       └── views/           # 10 个页面（含设置页 Settings）
 ├── android/                 # Android 原生 App (Jetpack Compose)
 ├── docs/                    # 功能需求文档
 └── pom.xml                  # Maven
@@ -95,12 +95,13 @@ mysql -u root -p123123 wordclub < data/init-user-tables.sql
 ### 词汇 `/api/vocabulary`
 | GET | `/?page=&size=&bookId=` | 需 | 分页获取（可按词书筛选） |
 | GET | `/{id}` | 需 | 单词详情 + 例句 |
-| GET | `/search?q=` | 需 | 模糊搜索 |
+| GET | `/search?q=` | 需 | 模糊搜索（英文+中文） |
 
 ### 学习 `/api/learning`
 | POST | `/review` | 需 | SM-2 复习记录 {wordId, quality} |
 | GET | `/stats` | 需 | 今日统计 |
 | GET | `/queue` | 需 | 待复习队列 |
+| GET | `/progress/book/{id}` | 需 | 词书学习进度（恢复位置） |
 | GET | `/favorites` | 需 | 收藏列表 |
 | POST | `/favorites/{wordId}` | 需 | 添加收藏 |
 | DELETE | `/favorites/{wordId}` | 需 | 取消收藏 |
@@ -171,11 +172,16 @@ cd android && ./gradlew installDebug
 ## 项目状态
 
 - ✅ 后端骨架 + 认证系统 + 安全防护
-- ✅ Web 前端 9 页 + Android App 8 页
+- ✅ Web 前端 10 页 + Android App 8 页
 - ✅ 10 万单词语料库 + JPA 实体映射
-- ✅ 词书选择 + 分页/搜索 API
+- ✅ 词书选择 + 分页/搜索 API（英文+中文）
 - ✅ 词书点击查看单词列表（/book/:id）
 - ✅ SM-2 间隔复习 + 学习统计 + 收藏
+- ✅ 顶部导航栏（侧边栏已移除）
+- ✅ 全局搜索弹窗（Ctrl+K 风格，英文+中文双字段）
+- ✅ 独立设置页（/settings）— 词书 + 每日目标（新词/复习比例）+ 偏好
+- ✅ 单词学习自动播放发音
+- ✅ 学习进度持久化 — 重新登录自动恢复位置
 - ✅ Material Icons 本地化（国内可用）
 - ⬜ Android 端对接新单词 API
 - ⬜ 拼写/选择题测验后端

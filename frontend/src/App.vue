@@ -2,12 +2,12 @@
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
-import AppSidebar from './components/AppSidebar.vue'
+import SearchModal from './components/SearchModal.vue'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const sidebarCollapsed = ref(false)
+const showSearch = ref(false)
 const showUserMenu = ref(false)
 
 const isGuestPage = computed(() => {
@@ -27,14 +27,11 @@ function handleLogout() {
     <RouterView />
   </div>
 
-  <!-- Authenticated layout with header + sidebar -->
-  <div v-else id="app-shell" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
+  <!-- Authenticated layout with header -->
+  <div v-else id="app-shell">
     <!-- Header -->
     <header class="app-header">
       <div class="header-left">
-        <button class="hamburger" @click="sidebarCollapsed = !sidebarCollapsed">
-          <span class="material-icons">menu</span>
-        </button>
         <router-link to="/" class="brand">
           <span class="brand-icon">W</span>
           <span class="brand-text">WordClub</span>
@@ -45,10 +42,13 @@ function handleLogout() {
         <router-link to="/">控制台</router-link>
         <router-link to="/library">词库</router-link>
         <router-link to="/summary">学习统计</router-link>
+        <router-link to="/settings">设置</router-link>
+        <router-link to="/learn/first-sight">认读模式</router-link>
+        <router-link to="/learn/spelling">拼写模式</router-link>
       </nav>
 
       <div class="header-actions">
-        <button class="icon-btn" title="搜索">
+        <button class="icon-btn" title="搜索" @click="showSearch = true">
           <span class="material-icons">search</span>
         </button>
         <button class="icon-btn has-badge" title="通知">
@@ -64,6 +64,10 @@ function handleLogout() {
             <span class="material-icons arrow" :class="{ open: showUserMenu }">arrow_drop_down</span>
           </div>
           <div v-if="showUserMenu" class="user-dropdown" @click.self="showUserMenu = false">
+            <div class="dropdown-item">
+              <span class="material-icons">help_outline</span>
+              <span>帮助中心</span>
+            </div>
             <div class="dropdown-item">
               <span class="material-icons">person</span>
               <span>个人信息</span>
@@ -81,11 +85,13 @@ function handleLogout() {
     </header>
 
     <div class="app-body">
-      <AppSidebar :collapsed="sidebarCollapsed" />
       <main class="main-content">
         <RouterView />
       </main>
     </div>
+
+    <!-- Search Modal -->
+    <SearchModal :visible="showSearch" @close="showSearch = false" />
   </div>
 </template>
 
@@ -121,18 +127,6 @@ function handleLogout() {
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
-}
-
-.hamburger {
-  display: none;
-  background: none;
-  border: none;
-  padding: 4px;
-  color: var(--color-text-secondary);
-  border-radius: var(--radius-sm);
-}
-.hamburger:hover {
-  background: var(--color-divider);
 }
 
 .brand {
@@ -303,11 +297,14 @@ function handleLogout() {
 
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
-  .hamburger {
-    display: flex;
-  }
   .header-nav {
-    display: none;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .header-nav a {
+    white-space: nowrap;
+    font-size: 13px;
+    padding: 4px 10px;
   }
   .user-name {
     display: none;
