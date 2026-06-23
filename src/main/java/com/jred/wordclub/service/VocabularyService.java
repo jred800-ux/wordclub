@@ -105,7 +105,8 @@ public class VocabularyService {
     }
 
     private void sm2Update(UserWordProgress p, int quality) {
-        if (quality < 0 || quality > 5) quality = Math.clamp(quality, 0, 5);
+        if (quality < 0) quality = 0;
+        if (quality > 5) quality = 5;
 
         if (quality < 3) {
             p.setRepetitions(0);
