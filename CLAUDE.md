@@ -4,7 +4,12 @@
 
 **必须执行以下操作：**
 
-1. **更新 `README.md`** — 反映本次任务涉及的所有改动，包括但不限于：
+1. **创建功能分支** — 每次任务在独立分支上开发：
+   - 分支命名: `feature/<简短功能描述>` 或 `fix/<简短修复描述>`（英文小写，`-` 分隔）
+   - 例如: `feature/search-topnav`, `feature/auto-pronunciation`, `fix/api-500-error`
+   - 开发完成后将分支推送到 `origin`
+
+2. **更新 `README.md`** — 反映本次任务涉及的所有改动，包括但不限于：
    - 新增/删除的文件和组件
    - 新增/修改的 API 端点
    - 新增/修改的路由
@@ -12,7 +17,7 @@
    - 项目状态条目更新
    - 架构或技术栈变化
 
-2. **推送到 GitHub** — 使用 MCP GitHub 工具将所有改动（包括 README.md）commit 并 push 到 `origin/main`
+3. **推送到 GitHub** — 使用 MCP GitHub 工具将分支推送到 `origin`
 
 ## 项目技术栈
 
