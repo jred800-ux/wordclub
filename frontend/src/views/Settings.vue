@@ -34,7 +34,8 @@ function selectBook(book) {
 }
 
 function startLearning() {
-  router.push('/learn/first-sight')
+  const path = store.learningMode === 'spelling' ? '/learn/spelling' : '/learn/first-sight'
+  router.push(path)
 }
 
 function resetProgress() {
@@ -236,6 +237,44 @@ function resetProgress() {
           <option value="">不设置考试目标</option>
           <option v-for="d in examDates" :key="d.value" :value="d.value">{{ d.label }}</option>
         </select>
+      </div>
+    </section>
+
+    <!-- 6. 学习模式 -->
+    <section class="settings-section">
+      <div class="section-title">
+        <span class="material-icons">psychology</span>
+        <div>
+          <strong>学习模式</strong>
+          <p>选择默认的学习方式，控制台点击"开始学习"将直接进入此模式</p>
+        </div>
+      </div>
+
+      <div class="mode-select">
+        <button
+          class="mode-option"
+          :class="{ active: store.learningMode === 'first-sight' }"
+          @click="store.setLearningMode('first-sight')"
+        >
+          <span class="material-icons mode-opt-icon">visibility</span>
+          <div class="mode-opt-text">
+            <strong>认读模式</strong>
+            <p>看到单词，判断是否认识</p>
+          </div>
+          <span v-if="store.learningMode === 'first-sight'" class="material-icons check-icon">check_circle</span>
+        </button>
+        <button
+          class="mode-option"
+          :class="{ active: store.learningMode === 'spelling' }"
+          @click="store.setLearningMode('spelling')"
+        >
+          <span class="material-icons mode-opt-icon">edit</span>
+          <div class="mode-opt-text">
+            <strong>拼写模式</strong>
+            <p>根据释义拼写出单词</p>
+          </div>
+          <span v-if="store.learningMode === 'spelling'" class="material-icons check-icon">check_circle</span>
+        </button>
       </div>
     </section>
 
@@ -597,6 +636,59 @@ function resetProgress() {
   font-size: 14px;
   color: var(--color-text-primary);
   cursor: pointer;
+}
+
+/* Learning Mode Selector */
+.mode-select {
+  display: flex;
+  gap: 12px;
+}
+.mode-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  text-align: left;
+}
+.mode-option:hover {
+  border-color: var(--color-primary);
+}
+.mode-option.active {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+.mode-opt-icon {
+  font-size: 32px;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  padding: 10px;
+  border-radius: var(--radius-lg);
+  flex-shrink: 0;
+}
+.mode-opt-text {
+  flex: 1;
+}
+.mode-opt-text strong {
+  display: block;
+  font-size: 15px;
+  color: var(--color-text-primary);
+  margin-bottom: 2px;
+}
+.mode-opt-text p {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+.check-icon {
+  font-size: 24px;
+  color: var(--color-primary);
+  flex-shrink: 0;
 }
 
 /* CTA */

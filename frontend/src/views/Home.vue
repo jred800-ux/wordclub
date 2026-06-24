@@ -1,8 +1,12 @@
 <script setup>
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useWordStore } from '../stores/word'
 
 const store = useWordStore()
+
+const learnPath = computed(() => {
+  return store.learningMode === 'spelling' ? '/learn/spelling' : '/learn/first-sight'
+})
 
 onMounted(async () => {
   await store.fetchBooks()
@@ -21,7 +25,7 @@ onMounted(async () => {
     <div class="hero-banner">
       <h1>欢迎回来</h1>
       <p>继续你的词汇精进之旅。</p>
-      <router-link to="/learn/first-sight" class="hero-cta">
+      <router-link :to="learnPath" class="hero-cta">
         开始学习
         <span class="material-icons">arrow_forward</span>
       </router-link>
@@ -47,15 +51,17 @@ onMounted(async () => {
     <div class="mode-section">
       <h2>选择学习模式</h2>
       <div class="mode-cards">
-        <router-link to="/learn/first-sight" class="mode-card">
+        <router-link to="/learn/first-sight" class="mode-card" :class="{ active: store.learningMode === 'first-sight' }">
           <span class="material-icons mode-icon">visibility</span>
           <h3>认读模式</h3>
           <p>看到单词，选择是否认识</p>
+          <span v-if="store.learningMode === 'first-sight'" class="default-badge">默认</span>
         </router-link>
-        <router-link to="/learn/spelling" class="mode-card">
+        <router-link to="/learn/spelling" class="mode-card" :class="{ active: store.learningMode === 'spelling' }">
           <span class="material-icons mode-icon">edit</span>
           <h3>拼写模式</h3>
           <p>根据释义拼写出单词</p>
+          <span v-if="store.learningMode === 'spelling'" class="default-badge">默认</span>
         </router-link>
       </div>
     </div>
@@ -152,6 +158,7 @@ onMounted(async () => {
   margin-bottom: 32px;
 }
 .mode-card {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -168,6 +175,21 @@ onMounted(async () => {
 .mode-card:hover {
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
+}
+.mode-card.active {
+  border: 2px solid var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+.default-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 10px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: var(--radius-full);
 }
 .mode-icon {
   font-size: 36px;

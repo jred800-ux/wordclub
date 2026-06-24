@@ -31,6 +31,9 @@ public class UserSetting {
     @Column(name = "dark_mode")
     private Boolean darkMode = false;
 
+    @Column(name = "learning_mode", length = 20)
+    private String learningMode = "first-sight";
+
     @Column(name = "exam_date", length = 20)
     private String examDate = "";
 

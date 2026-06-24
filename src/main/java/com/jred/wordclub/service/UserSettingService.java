@@ -33,6 +33,7 @@ public class UserSettingService {
         if (incoming.getCardOrder() != null) s.setCardOrder(incoming.getCardOrder());
         if (incoming.getLargeFont() != null) s.setLargeFont(incoming.getLargeFont());
         if (incoming.getDarkMode() != null) s.setDarkMode(incoming.getDarkMode());
+        if (incoming.getLearningMode() != null) s.setLearningMode(incoming.getLearningMode());
         if (incoming.getExamDate() != null) s.setExamDate(incoming.getExamDate());
         if (incoming.getSelectedBookId() != null) s.setSelectedBookId(incoming.getSelectedBookId());
 

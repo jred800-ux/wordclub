@@ -11,7 +11,13 @@ const isCorrect = ref(false)
 const shakeKey = ref(0)
 
 onMounted(() => {
-  if (!store.words.length) store.fetchWords()
+  if (!store.words.length) {
+    if (store.selectedBookId) {
+      store.selectBook(store.selectedBookId)
+    } else {
+      store.fetchWords()
+    }
+  }
   setupSlots()
   window.addEventListener('keydown', onKeydown)
 })
