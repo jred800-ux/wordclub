@@ -9,6 +9,7 @@ const showHint = ref(false)
 const submitted = ref(false)
 const isCorrect = ref(false)
 const shakeKey = ref(0)
+const audioUnlocked = ref(false)
 
 onMounted(async () => {
   await store.settingsReady()
@@ -109,16 +110,19 @@ function submitWord() {
 }
 
 function nextWord() {
+  audioUnlocked.value = true
   store.nextWord()
   nextTick(setupSlots)
 }
 
 function skipWord() {
+  audioUnlocked.value = true
   store.skipWord()
   nextTick(setupSlots)
 }
 
 function playAudio() {
+  audioUnlocked.value = true
   if (!word.value || !window.speechSynthesis) return
   const u = new SpeechSynthesisUtterance(word.value.spelling)
   u.lang = 'en-US'
@@ -126,9 +130,9 @@ function playAudio() {
   speechSynthesis.speak(u)
 }
 
-// Auto-play pronunciation when word changes (synchronous to stay within user activation)
+// Auto-play only after first user interaction (avoids Chrome speechSynthesis blocking)
 watch(word, (newWord) => {
-  if (newWord) playAudio()
+  if (newWord && audioUnlocked.value) playAudio()
 })
 </script>
 
