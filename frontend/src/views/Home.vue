@@ -47,25 +47,6 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- Mode Cards -->
-    <div class="mode-section">
-      <h2>选择学习模式</h2>
-      <div class="mode-cards">
-        <router-link to="/learn/first-sight" class="mode-card" :class="{ active: store.learningMode === 'first-sight' }">
-          <span class="material-icons mode-icon">visibility</span>
-          <h3>认读模式</h3>
-          <p>看到单词，选择是否认识</p>
-          <span v-if="store.learningMode === 'first-sight'" class="default-badge">默认</span>
-        </router-link>
-        <router-link to="/learn/spelling" class="mode-card" :class="{ active: store.learningMode === 'spelling' }">
-          <span class="material-icons mode-icon">edit</span>
-          <h3>拼写模式</h3>
-          <p>根据释义拼写出单词</p>
-          <span v-if="store.learningMode === 'spelling'" class="default-badge">默认</span>
-        </router-link>
-      </div>
-    </div>
-
     <!-- Recent Words -->
     <div class="recent-section" v-if="store.words.length">
       <h2>词库概览</h2>
@@ -147,67 +128,6 @@ onMounted(async () => {
   margin-top: 2px;
 }
 
-.mode-section h2 {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 14px;
-}
-.mode-cards {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 32px;
-}
-.mode-card {
-  position: relative;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 28px 20px;
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  text-decoration: none;
-  transition: box-shadow 0.2s, transform 0.2s;
-  text-align: center;
-}
-.mode-card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-}
-.mode-card.active {
-  border: 2px solid var(--color-primary);
-  box-shadow: 0 0 0 1px var(--color-primary);
-}
-.default-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  padding: 2px 10px;
-  background: var(--color-primary);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 600;
-  border-radius: var(--radius-full);
-}
-.mode-icon {
-  font-size: 36px;
-  color: var(--color-primary);
-  background: var(--color-primary-light);
-  padding: 12px;
-  border-radius: var(--radius-xl);
-}
-.mode-card h3 {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-.mode-card p {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-}
-
 .recent-section h2 {
   font-size: 18px;
   font-weight: 600;
@@ -237,6 +157,5 @@ onMounted(async () => {
 @media (max-width: 640px) {
   .home-dashboard { padding: 20px 12px; }
   .quick-stats { flex-direction: column; gap: 8px; }
-  .mode-cards { flex-direction: column; }
 }
 </style>
