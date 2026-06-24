@@ -10,6 +10,8 @@ const submitted = ref(false)
 const isCorrect = ref(false)
 const shakeKey = ref(0)
 const audioUnlocked = ref(false)
+const showCompletion = ref(false)
+const checkinMsg = ref('')
 
 onMounted(async () => {
   await store.settingsReady()
@@ -134,10 +136,56 @@ function playAudio() {
 watch(word, (newWord) => {
   if (newWord && audioUnlocked.value) playAudio()
 })
+
+// Show completion banner when daily goal reached
+watch(() => store.dailyGoalReached, (reached) => {
+  if (reached && !store.checkedInToday) {
+    showCompletion.value = true
+  }
+})
+
+async function handleCheckin() {
+  try {
+    const result = await store.doCheckin()
+    checkinMsg.value = `已连续打卡 ${result.streak} 天!`
+  } catch (e) {
+    checkinMsg.value = e.response?.data?.message || '打卡失败'
+  }
+}
+
+async function handleTrash() {
+  if (!word.value || submitted.value) return
+  await store.addToBlacklist(word.value.id)
+  audioUnlocked.value = true
+  store.nextWord()
+  nextTick(setupSlots)
+}
 </script>
 
 <template>
   <div class="spelling-mode" :class="{ 'large-font': store.largeFont }" v-if="word">
+    <!-- Completion Banner -->
+    <div v-if="showCompletion" class="completion-banner">
+      <div class="completion-content">
+        <span class="material-icons celebration-icon">emoji_events</span>
+        <h3>今日目标达成!</h3>
+        <p>你已经学完了今日计划的 {{ store.dailyGoal }} 个单词</p>
+        <button
+          v-if="!store.checkedInToday"
+          class="checkin-btn"
+          @click="handleCheckin"
+          :disabled="!!checkinMsg"
+        >
+          <span class="material-icons">how_to_reg</span>
+          {{ checkinMsg || '打卡记录' }}
+        </button>
+        <p v-else class="already-checkedin">
+          <span class="material-icons">check_circle</span> 今日已打卡 · 连续 {{ store.streakDays }} 天
+        </p>
+        <button class="text-btn" @click="showCompletion = false">继续学习</button>
+      </div>
+    </div>
+
     <!-- Daily Goal -->
     <div class="daily-goal-bar">
       <div class="daily-goal-header">
@@ -226,6 +274,9 @@ watch(word, (newWord) => {
         </button>
         <button class="btn-ghost" @click="skipWord" :disabled="submitted">
           <span class="material-icons">skip_next</span> 跳过此词
+        </button>
+        <button class="btn-ghost trash-btn" @click="handleTrash" :disabled="submitted">
+          <span class="material-icons">delete_outline</span> 扔进垃圾桶
         </button>
       </div>
     </div>
@@ -434,6 +485,57 @@ watch(word, (newWord) => {
   transition: background 0.15s;
 }
 .btn-ghost:hover:not(:disabled) { background: var(--color-divider); }
+.trash-btn { color: #9ca3af; }
+
+/* Completion Banner */
+.completion-banner {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1px solid #fcd34d;
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+.completion-content h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #92400e;
+  margin: 8px 0 4px;
+}
+.completion-content p {
+  font-size: 13px;
+  color: #a16207;
+  margin-bottom: 16px;
+}
+.celebration-icon {
+  font-size: 40px;
+  color: #f59e0b;
+}
+.checkin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 28px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+.checkin-btn:disabled { opacity: 0.7; cursor: default; }
+.already-checkedin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #059669;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
 
 /* Empty */
 .empty-state { text-align: center; padding: 80px 20px; color: var(--color-text-muted); }

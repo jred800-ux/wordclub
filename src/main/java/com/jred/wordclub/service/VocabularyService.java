@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +21,7 @@ public class VocabularyService {
     private final VocExampleRepository vocExampleRepository;
     private final UserWordProgressRepository progressRepository;
     private final UserFavoriteRepository favoriteRepository;
+    private final BlacklistService blacklistService;
 
     public List<Book> listBooks() {
         return bookRepository.findAll();
@@ -29,9 +31,15 @@ public class VocabularyService {
         return bookRepository.findById(bookId);
     }
 
-    public Page<Vocabulary> listWords(Long bookId, Pageable pageable) {
+    public Page<Vocabulary> listWords(Long bookId, Long userId, Pageable pageable) {
         if (bookId != null) {
-            return vocabularyRepository.findByBookId(bookId, pageable);
+            Set<Long> blacklistedIds = userId != null
+                    ? blacklistService.getBlacklistedWordIds(userId)
+                    : Collections.emptySet();
+            List<Long> excludeList = blacklistedIds.isEmpty()
+                    ? List.of(-1L)
+                    : new ArrayList<>(blacklistedIds);
+            return vocabularyRepository.findByBookIdExcluding(bookId, excludeList, pageable);
         }
         return vocabularyRepository.findAll(pageable);
     }
@@ -46,7 +54,9 @@ public class VocabularyService {
 
     public Map<String, Object> getBookProgress(Long userId, Long bookId) {
         Map<String, Object> result = new HashMap<>();
-        long totalWords = vocabularyRepository.countByBookId(bookId);
+        Set<Long> blacklisted = blacklistService.getBlacklistedWordIds(userId);
+        List<Long> excludeList = blacklisted.isEmpty() ? List.of(-1L) : new ArrayList<>(blacklisted);
+        long totalWords = vocabularyRepository.countByBookIdExcluding(bookId, excludeList);
         result.put("totalWords", totalWords);
         long studiedCount = progressRepository.countByUserIdAndBookId(userId, bookId);
         result.put("studiedCount", studiedCount);

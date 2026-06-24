@@ -7,6 +7,7 @@ export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('token') || '')
 
   const isLoggedIn = computed(() => !!token.value)
+  const isAdmin = computed(() => user.value?.role === 'ADMIN')
 
   // 初始化时从 localStorage 恢复 token 并获取用户信息
   async function init() {
@@ -14,10 +15,14 @@ export const useAuthStore = defineStore('auth', () => {
       try {
         const data = await api.get('/auth/me')
         user.value = data.data
+        if (user.value?.role) {
+          localStorage.setItem('userRole', user.value.role)
+        }
       } catch {
         // token 失效，清除
         token.value = ''
         localStorage.removeItem('token')
+        localStorage.removeItem('userRole')
       }
     }
   }
@@ -27,6 +32,7 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = data.data.token
     user.value = data.data.user
     localStorage.setItem('token', token.value)
+    if (user.value?.role) localStorage.setItem('userRole', user.value.role)
     return data
   }
 
@@ -47,6 +53,7 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = ''
     user.value = null
     localStorage.removeItem('token')
+    localStorage.removeItem('userRole')
   }
 
   async function fetchUser() {
@@ -55,7 +62,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   return {
-    user, token, isLoggedIn,
+    user, token, isLoggedIn, isAdmin,
     init, login, register, logout, fetchUser, sendCode,
   }
 })

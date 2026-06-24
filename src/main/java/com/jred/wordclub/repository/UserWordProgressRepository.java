@@ -25,4 +25,6 @@ public interface UserWordProgressRepository extends JpaRepository<UserWordProgre
     long countByUserIdAndBookIdAndStatus(Long userId, Long bookId, String status);
 
     Optional<UserWordProgress> findFirstByUserIdAndBookIdOrderByUpdatedAtDesc(Long userId, Long bookId);
+
+    void deleteAllByUserId(Long userId);
 }

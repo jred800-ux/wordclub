@@ -1,6 +1,7 @@
 package com.jred.wordclub.exception;
 
 import cn.dev33.satoken.exception.NotLoginException;
+import cn.dev33.satoken.exception.NotRoleException;
 import com.jred.wordclub.common.Result;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -18,6 +19,12 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public Result<?> handleNotLogin(NotLoginException e) {
         return Result.error(401, "请先登录");
+    }
+
+    @ExceptionHandler(NotRoleException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public Result<?> handleNotRole(NotRoleException e) {
+        return Result.error(403, "权限不足");
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

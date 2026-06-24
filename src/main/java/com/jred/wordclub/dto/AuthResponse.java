@@ -18,6 +18,7 @@ public class AuthResponse {
         private String email;
         private String nickname;
         private String avatarUrl;
+        private String role;
 
         public static UserInfo from(User user) {
             return new UserInfo(
@@ -25,7 +26,8 @@ public class AuthResponse {
                     user.getUsername(),
                     user.getEmail(),
                     user.getNickname(),
-                    user.getAvatarUrl()
+                    user.getAvatarUrl(),
+                    user.getRole()
             );
         }
     }

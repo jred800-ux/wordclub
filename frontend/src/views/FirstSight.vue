@@ -5,6 +5,8 @@ import { useWordStore } from '../stores/word'
 const store = useWordStore()
 const statusMsg = ref('')
 const audioUnlocked = ref(false)
+const showCompletion = ref(false)
+const checkinMsg = ref('')
 
 onMounted(async () => {
   await store.settingsReady()
@@ -57,6 +59,33 @@ function playAudio() {
 watch(() => store.currentWord, (newWord) => {
   if (newWord && audioUnlocked.value) playAudio()
 })
+
+// Show completion banner when daily goal reached
+watch(() => store.dailyGoalReached, (reached) => {
+  if (reached && !store.checkedInToday) {
+    showCompletion.value = true
+  }
+})
+
+async function handleCheckin() {
+  try {
+    const result = await store.doCheckin()
+    checkinMsg.value = `已连续打卡 ${result.streak} 天!`
+  } catch (e) {
+    checkinMsg.value = e.response?.data?.message || '打卡失败'
+  }
+}
+
+async function handleTrash() {
+  if (!store.currentWord) return
+  audioUnlocked.value = true
+  await store.addToBlacklist(store.currentWord.id)
+  statusMsg.value = '已扔进垃圾桶'
+  setTimeout(() => {
+    statusMsg.value = ''
+    store.nextWord()
+  }, 800)
+}
 </script>
 
 <template>
@@ -74,6 +103,28 @@ watch(() => store.currentWord, (newWord) => {
       <div class="daily-goal-legend">
         <span class="legend-new"><span class="dot"></span>新词 {{ store.todayNewCount }}</span>
         <span class="legend-review"><span class="dot"></span>复习 {{ store.todayReviewCount }}</span>
+      </div>
+    </div>
+
+    <!-- Completion Banner -->
+    <div v-if="showCompletion" class="completion-banner">
+      <div class="completion-content">
+        <span class="material-icons celebration-icon">emoji_events</span>
+        <h3>今日目标达成!</h3>
+        <p>你已经学完了今日计划的 {{ store.dailyGoal }} 个单词</p>
+        <button
+          v-if="!store.checkedInToday"
+          class="checkin-btn"
+          @click="handleCheckin"
+          :disabled="!!checkinMsg"
+        >
+          <span class="material-icons">how_to_reg</span>
+          {{ checkinMsg || '打卡记录' }}
+        </button>
+        <p v-else class="already-checkedin">
+          <span class="material-icons">check_circle</span> 今日已打卡 · 连续 {{ store.streakDays }} 天
+        </p>
+        <button class="text-btn" @click="showCompletion = false">继续学习</button>
       </div>
     </div>
 
@@ -112,6 +163,10 @@ watch(() => store.currentWord, (newWord) => {
       <button class="action-btn mastered" @click="handleMastered">
         <span class="material-icons">check</span>
         <span class="action-label">认识</span>
+      </button>
+      <button class="action-btn trash" @click="handleTrash">
+        <span class="material-icons">delete_outline</span>
+        <span class="action-label">太简单</span>
       </button>
     </div>
 
@@ -292,6 +347,61 @@ watch(() => store.currentWord, (newWord) => {
   border-color: var(--color-success);
   background: var(--color-success-light);
   color: var(--color-success);
+}
+.action-btn.trash:hover {
+  border-color: #9ca3af;
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Completion Banner */
+.completion-banner {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1px solid #fcd34d;
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+.completion-content h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #92400e;
+  margin: 8px 0 4px;
+}
+.completion-content p {
+  font-size: 13px;
+  color: #a16207;
+  margin-bottom: 16px;
+}
+.celebration-icon {
+  font-size: 40px;
+  color: #f59e0b;
+}
+.checkin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 28px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+.checkin-btn:disabled { opacity: 0.7; cursor: default; }
+.already-checkedin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #059669;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
 }
 
 /* Status Banner */

@@ -6,4 +6,5 @@ import java.util.Optional;
 
 public interface UserSettingRepository extends JpaRepository<UserSetting, Long> {
     Optional<UserSetting> findByUserId(Long userId);
+    void deleteByUserId(Long userId);
 }

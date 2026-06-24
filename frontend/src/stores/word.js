@@ -33,11 +33,15 @@ export const useWordStore = defineStore('word', () => {
 
   // Stats (from API)
   const todayLearned = ref(0)
-  const todayMinutes = ref(0)
   const streakDays = ref(0)
   const masteredCount = ref(0)
   const todayNewCount = ref(0)
   const todayReviewCount = ref(0)
+  const checkedInToday = ref(false)
+  const totalCheckins = ref(0)
+
+  // Blacklist (trash)
+  const blacklistedIds = ref(new Set())
 
   // --- Computed ---
 
@@ -47,6 +51,7 @@ export const useWordStore = defineStore('word', () => {
     if (!dailyGoal.value) return 0
     return Math.min(100, Math.round(((todayNewCount.value + todayReviewCount.value) / dailyGoal.value) * 100))
   })
+  const dailyGoalReached = computed(() => dailyGoalPercent.value >= 100)
 
   const currentWord = computed(() => {
     const w = words.value[currentIndex.value]
@@ -149,6 +154,7 @@ export const useWordStore = defineStore('word', () => {
     currentPage.value = 0
     words.value = []
     bookProgress.value = null
+    fetchBlacklistedIds()
 
     if (resume) {
       try {
@@ -231,6 +237,9 @@ export const useWordStore = defineStore('word', () => {
       todayNewCount.value = stats.todayNewCount || 0
       todayReviewCount.value = stats.todayReviewCount || 0
       masteredCount.value = stats.mastered || 0
+      streakDays.value = stats.streakDays || 0
+      checkedInToday.value = !!stats.checkedInToday
+      totalCheckins.value = stats.totalCheckins || 0
     } catch (e) {
       console.error('[WordStore] fetchStats:', e.message)
     }
@@ -311,6 +320,39 @@ export const useWordStore = defineStore('word', () => {
     nextWord()
   }
 
+  // --- Check-in ---
+
+  async function doCheckin() {
+    const data = await api.post('/learning/checkin')
+    const result = data.data || data
+    streakDays.value = result.streak || 0
+    checkedInToday.value = true
+    totalCheckins.value = result.totalCheckins || 0
+    return result
+  }
+
+  // --- Blacklist (trash) ---
+
+  async function fetchBlacklistedIds() {
+    try {
+      const data = await api.get('/learning/blacklist/ids')
+      const ids = data.data || data || []
+      blacklistedIds.value = new Set(ids)
+    } catch (e) {
+      console.error('[WordStore] fetchBlacklistedIds:', e.message)
+    }
+  }
+
+  async function addToBlacklist(wordId) {
+    await api.post(`/learning/blacklist/${wordId}`)
+    blacklistedIds.value.add(wordId)
+  }
+
+  async function removeFromBlacklist(wordId) {
+    await api.delete(`/learning/blacklist/${wordId}`)
+    blacklistedIds.value.delete(wordId)
+  }
+
   function setOrder(order) {
     cardOrder.value = order
   }
@@ -342,8 +384,9 @@ export const useWordStore = defineStore('word', () => {
     masteredIds, fuzzyIds, unknownIds,
     cardOrder, largeFont, darkMode, learningMode, dailyGoal, reviewWordCount,
     newWordCount, reviewRatio, examDate, bookProgress,
-    todayLearned, todayMinutes, streakDays, masteredCount,
-    todayNewCount, todayReviewCount, dailyGoalPercent,
+    todayLearned, streakDays, masteredCount,
+    todayNewCount, todayReviewCount, dailyGoalPercent, dailyGoalReached,
+    checkedInToday, totalCheckins, blacklistedIds,
     currentWord, totalWords, progress, progressPercent,
     fetchBooks, selectBook, fetchWords, fetchWordDetail, fetchStats,
     recordReview, toggleFavorite,
@@ -351,5 +394,6 @@ export const useWordStore = defineStore('word', () => {
     skipWord, nextWord, setOrder,
     toggleLargeFont, toggleDarkMode, setLearningMode,
     fetchSettings, saveSettings, settingsReady,
+    doCheckin, fetchBlacklistedIds, addToBlacklist, removeFromBlacklist,
   }
 })

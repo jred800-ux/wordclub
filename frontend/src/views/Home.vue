@@ -38,12 +38,12 @@ onMounted(async () => {
         <div class="q-label">今日已学</div>
       </div>
       <div class="q-stat">
-        <div class="q-number">{{ store.todayMinutes }}m</div>
-        <div class="q-label">学习时长</div>
-      </div>
-      <div class="q-stat">
         <div class="q-number">{{ store.streakDays }}</div>
         <div class="q-label">连续天数</div>
+      </div>
+      <div class="q-stat">
+        <div class="q-number">{{ store.masteredCount }}</div>
+        <div class="q-label">已掌握</div>
       </div>
     </div>
 

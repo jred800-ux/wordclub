@@ -12,4 +12,6 @@ public interface UserFavoriteRepository extends JpaRepository<UserFavorite, Long
     Optional<UserFavorite> findByUserIdAndWordId(Long userId, Long wordId);
 
     void deleteByUserIdAndWordId(Long userId, Long wordId);
+
+    void deleteAllByUserId(Long userId);
 }

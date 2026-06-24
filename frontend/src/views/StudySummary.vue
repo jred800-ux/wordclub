@@ -3,36 +3,21 @@ import { ref, onMounted } from 'vue'
 import { useWordStore } from '../stores/word'
 
 const store = useWordStore()
-const shared = ref(false)
+const checkinMsg = ref('')
 
 onMounted(() => {
   store.fetchStats()
 })
 
-const weeks = 15
-const heatmapData = ref(generateHeatmap())
-
-function generateHeatmap() {
-  const rows = []
-  for (let d = 0; d < 7; d++) {
-    const week = []
-    for (let w = 0; w < weeks; w++) {
-      const level = Math.random() < 0.4 ? 0 : Math.floor(Math.random() * 4) + 1
-      week.push(level)
-    }
-    rows.push(week)
+async function handleCheckin() {
+  if (store.checkedInToday) return
+  try {
+    const result = await store.doCheckin()
+    checkinMsg.value = `打卡成功! 连续 ${result.streak} 天`
+    setTimeout(() => (checkinMsg.value = ''), 3000)
+  } catch (e) {
+    checkinMsg.value = e.response?.data?.message || '打卡失败'
   }
-  return rows
-}
-
-function getHeatColor(level) {
-  const colors = ['#ebedf0', '#c6e48b', '#7bc96f', '#239a3b', '#196127']
-  return colors[level] || colors[0]
-}
-
-function handleShare() {
-  shared.value = true
-  setTimeout(() => (shared.value = false), 2500)
 }
 </script>
 
@@ -51,9 +36,9 @@ function handleShare() {
         <div class="stat-label">今日学习单词</div>
       </div>
       <div class="stat-card">
-        <span class="material-icons stat-icon" style="color: #f59e0b;">timer</span>
-        <div class="stat-number">{{ store.todayMinutes }} 分钟</div>
-        <div class="stat-label">今日学习时长</div>
+        <span class="material-icons stat-icon" style="color: #f59e0b;">how_to_reg</span>
+        <div class="stat-number">{{ store.totalCheckins }}</div>
+        <div class="stat-label">累计打卡次数</div>
       </div>
       <div class="stat-card">
         <span class="material-icons stat-icon" style="color: #ef4444;">local_fire_department</span>
@@ -62,35 +47,14 @@ function handleShare() {
       </div>
     </div>
 
-    <div class="heatmap-card">
-      <h3 class="card-title">学习热力图</h3>
-      <div class="heatmap-container">
-        <div class="heatmap-grid">
-          <template v-for="(row, dayIdx) in heatmapData" :key="dayIdx">
-            <div
-              v-for="(level, weekIdx) in row"
-              :key="`${dayIdx}-${weekIdx}`"
-              class="heatmap-cell"
-              :style="{ background: getHeatColor(level) }"
-              :title="`${level} 个单词`"
-            ></div>
-          </template>
-        </div>
-        <div class="heatmap-legend">
-          <span>少</span>
-          <div class="legend-swatch" style="background: #ebedf0;"></div>
-          <div class="legend-swatch" style="background: #c6e48b;"></div>
-          <div class="legend-swatch" style="background: #7bc96f;"></div>
-          <div class="legend-swatch" style="background: #239a3b;"></div>
-          <div class="legend-swatch" style="background: #196127;"></div>
-          <span>多</span>
-        </div>
-      </div>
-    </div>
-
-    <button class="share-btn" @click="handleShare" :class="{ shared }">
-      <span class="material-icons">share</span>
-      {{ shared ? '已分享!' : '打卡并分享' }}
+    <button
+      class="share-btn"
+      @click="handleCheckin"
+      :disabled="store.checkedInToday"
+      :class="{ shared: checkinMsg }"
+    >
+      <span class="material-icons">{{ store.checkedInToday ? 'check_circle' : 'how_to_reg' }}</span>
+      {{ store.checkedInToday ? '今日已打卡' : (checkinMsg || '打卡记录') }}
     </button>
 
     <div class="quote-block">
@@ -161,47 +125,6 @@ function handleShare() {
   color: var(--color-text-secondary);
 }
 
-.heatmap-card {
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  padding: 24px;
-  margin-bottom: 24px;
-}
-.card-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 16px;
-}
-.heatmap-container {
-  overflow-x: auto;
-}
-.heatmap-grid {
-  display: grid;
-  grid-template-columns: repeat(15, 1fr);
-  gap: 2px;
-  margin-bottom: 10px;
-}
-.heatmap-cell {
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: 2px;
-  min-width: 10px;
-}
-.heatmap-legend {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 3px;
-  font-size: 11px;
-  color: var(--color-text-muted);
-}
-.legend-swatch {
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
-}
-
 .share-btn {
   display: flex;
   align-items: center;
@@ -222,6 +145,11 @@ function handleShare() {
   transform: scale(1.02);
 }
 .share-btn.shared {
+  background: var(--color-success);
+}
+.share-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
   background: var(--color-success);
 }
 

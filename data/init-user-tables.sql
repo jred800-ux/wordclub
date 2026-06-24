@@ -39,3 +39,29 @@ CREATE TABLE IF NOT EXISTS `user_settings` (
     `updated_at` DATETIME(6) DEFAULT NULL,
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 打卡记录表
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `user_checkins` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT NOT NULL,
+    `checkin_date` DATE NOT NULL,
+    `created_at` DATETIME(6) DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_user_date` (`user_id`, `checkin_date`),
+    INDEX `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 单词回收桶（太简单的词永久不再出现）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `user_word_blacklist` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT NOT NULL,
+    `word_id` BIGINT NOT NULL,
+    `created_at` DATETIME(6) DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_user_word` (`user_id`, `word_id`),
+    INDEX `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
