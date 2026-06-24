@@ -4,6 +4,7 @@ import { useWordStore } from '../stores/word'
 
 const store = useWordStore()
 const statusMsg = ref('')
+const audioUnlocked = ref(false)
 
 onMounted(async () => {
   await store.settingsReady()
@@ -19,6 +20,7 @@ onMounted(async () => {
 
 function handleMastered() {
   if (!store.currentWord) return
+  audioUnlocked.value = true
   store.markMastered(store.currentWord)
   statusMsg.value = '已存入掌握列表'
   setTimeout(() => (statusMsg.value = ''), 2000)
@@ -26,6 +28,7 @@ function handleMastered() {
 
 function handleFuzzy() {
   if (!store.currentWord) return
+  audioUnlocked.value = true
   store.markFuzzy(store.currentWord)
   statusMsg.value = '已标记为模糊'
   setTimeout(() => (statusMsg.value = ''), 2000)
@@ -33,12 +36,14 @@ function handleFuzzy() {
 
 function handleUnknown() {
   if (!store.currentWord) return
+  audioUnlocked.value = true
   store.markUnknown(store.currentWord)
   statusMsg.value = '已标记为不认识'
   setTimeout(() => (statusMsg.value = ''), 2000)
 }
 
 function playAudio() {
+  audioUnlocked.value = true
   const word = store.currentWord?.spelling
   if (word && window.speechSynthesis) {
     const u = new SpeechSynthesisUtterance(word)
@@ -48,9 +53,9 @@ function playAudio() {
   }
 }
 
-// Auto-play pronunciation when word changes (synchronous to stay within user activation)
+// Auto-play only after first user interaction (avoids Chrome speechSynthesis blocking)
 watch(() => store.currentWord, (newWord) => {
-  if (newWord) playAudio()
+  if (newWord && audioUnlocked.value) playAudio()
 })
 </script>
 
