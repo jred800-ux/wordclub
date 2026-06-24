@@ -33,10 +33,16 @@ const word = computed(() => store.currentWord)
 function setupSlots() {
   if (!word.value) return
   const len = word.value.spelling.length
-  letterSlots.value = Array.from({ length: len }, (_, i) => ({
-    letter: i === 0 || i === len - 1 ? word.value.spelling[i] : '',
-    prefill: i === 0 || i === len - 1,
-  }))
+  // For words with <= 2 letters, prefill only the first letter so user can type at least one
+  const minEditable = 1
+  const prefillCount = len <= 2 ? Math.max(0, len - minEditable) : 2
+  letterSlots.value = Array.from({ length: len }, (_, i) => {
+    const prefill = i < prefillCount || (prefillCount >= 2 && i === len - 1)
+    return {
+      letter: prefill ? word.value.spelling[i] : '',
+      prefill,
+    }
+  })
   activeIndex.value = letterSlots.value.findIndex(s => !s.prefill)
   showHint.value = false
   submitted.value = false
@@ -120,26 +126,14 @@ function playAudio() {
   speechSynthesis.speak(u)
 }
 
-// Auto-play pronunciation when word changes
+// Auto-play pronunciation when word changes (synchronous to stay within user activation)
 watch(word, (newWord) => {
-  if (newWord) {
-    setTimeout(() => playAudio(), 300)
-  }
+  if (newWord) playAudio()
 })
 </script>
 
 <template>
   <div class="spelling-mode" :class="{ 'large-font': store.largeFont }" v-if="word">
-    <!-- Progress -->
-    <div class="progress-section">
-      <div class="progress-label">
-        学习进度 <strong>{{ store.progress }} / {{ store.totalWords }}</strong>
-      </div>
-      <div class="progress-bar">
-        <div class="progress-fill" :style="{ width: store.progressPercent + '%' }"></div>
-      </div>
-    </div>
-
     <!-- Daily Goal -->
     <div class="daily-goal-bar">
       <div class="daily-goal-header">
@@ -218,7 +212,7 @@ watch(word, (newWord) => {
           v-if="!submitted"
           class="btn-primary"
           @click="submitWord"
-          :disabled="letterSlots.every(s => s.prefill || s.letter)"
+          :disabled="!letterSlots.every(s => s.prefill || s.letter)"
         >
           确认
           <span class="shortcut">ENTER 提交</span>
@@ -245,13 +239,6 @@ watch(word, (newWord) => {
   margin: 0 auto;
   padding: 32px 20px;
 }
-
-/* Progress */
-.progress-section { margin-bottom: 32px; }
-.progress-label { font-size: 14px; color: var(--color-text-secondary); margin-bottom: 8px; }
-.progress-label strong { color: var(--color-text-primary); }
-.progress-bar { height: 6px; background: var(--color-border); border-radius: var(--radius-full); overflow: hidden; }
-.progress-fill { height: 100%; background: var(--color-primary); border-radius: var(--radius-full); transition: width 0.4s; }
 
 /* Daily Goal */
 .daily-goal-bar {
