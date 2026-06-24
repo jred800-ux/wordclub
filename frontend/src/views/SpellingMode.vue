@@ -10,7 +10,9 @@ const submitted = ref(false)
 const isCorrect = ref(false)
 const shakeKey = ref(0)
 
-onMounted(() => {
+onMounted(async () => {
+  await store.settingsReady()
+  store.fetchStats()
   if (!store.words.length) {
     if (store.selectedBookId) {
       store.selectBook(store.selectedBookId)
@@ -127,7 +129,7 @@ watch(word, (newWord) => {
 </script>
 
 <template>
-  <div class="spelling-mode" v-if="word">
+  <div class="spelling-mode" :class="{ 'large-font': store.largeFont }" v-if="word">
     <!-- Progress -->
     <div class="progress-section">
       <div class="progress-label">
@@ -135,6 +137,22 @@ watch(word, (newWord) => {
       </div>
       <div class="progress-bar">
         <div class="progress-fill" :style="{ width: store.progressPercent + '%' }"></div>
+      </div>
+    </div>
+
+    <!-- Daily Goal -->
+    <div class="daily-goal-bar">
+      <div class="daily-goal-header">
+        <span>今日目标</span>
+        <strong>{{ store.todayNewCount + store.todayReviewCount }} / {{ store.dailyGoal }}</strong>
+      </div>
+      <div class="daily-goal-track">
+        <div class="dg-fill-new" :style="{ width: (store.todayNewCount / Math.max(store.dailyGoal, 1) * 100) + '%' }"></div>
+        <div class="dg-fill-review" :style="{ width: (store.todayReviewCount / Math.max(store.dailyGoal, 1) * 100) + '%' }"></div>
+      </div>
+      <div class="daily-goal-legend">
+        <span class="legend-new"><span class="dot"></span>新词 {{ store.todayNewCount }}</span>
+        <span class="legend-review"><span class="dot"></span>复习 {{ store.todayReviewCount }}</span>
       </div>
     </div>
 
@@ -234,6 +252,40 @@ watch(word, (newWord) => {
 .progress-label strong { color: var(--color-text-primary); }
 .progress-bar { height: 6px; background: var(--color-border); border-radius: var(--radius-full); overflow: hidden; }
 .progress-fill { height: 100%; background: var(--color-primary); border-radius: var(--radius-full); transition: width 0.4s; }
+
+/* Daily Goal */
+.daily-goal-bar {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+.daily-goal-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+.daily-goal-header strong { color: var(--color-text-primary); }
+.daily-goal-track {
+  display: flex;
+  height: 6px;
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.dg-fill-new { height: 100%; background: var(--color-primary); transition: width 0.4s ease; }
+.dg-fill-review { height: 100%; background: var(--color-warning); transition: width 0.4s ease; }
+.daily-goal-legend { display: flex; gap: 16px; font-size: 12px; color: var(--color-text-muted); }
+.legend-new .dot, .legend-review .dot {
+  display: inline-block; width: 8px; height: 8px;
+  border-radius: 50%; margin-right: 4px; vertical-align: middle;
+}
+.legend-new .dot { background: var(--color-primary); }
+.legend-review .dot { background: var(--color-warning); }
 
 /* Card */
 .spelling-card {

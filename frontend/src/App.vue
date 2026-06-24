@@ -34,6 +34,17 @@ watch(() => authStore.isLoggedIn, (loggedIn) => {
     wordStore.fetchSettings()
   }
 })
+
+// Dark mode — toggle class on <html> so :root.dark CSS applies
+function applyDarkMode(enabled) {
+  if (enabled) {
+    document.documentElement.classList.add('dark')
+  } else {
+    document.documentElement.classList.remove('dark')
+  }
+}
+if (wordStore.darkMode) applyDarkMode(true)
+watch(() => wordStore.darkMode, applyDarkMode)
 </script>
 
 <template>

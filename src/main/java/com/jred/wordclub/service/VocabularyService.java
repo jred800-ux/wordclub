@@ -97,9 +97,16 @@ public class VocabularyService {
     }
 
     public Map<String, Long> getTodayStats(Long userId) {
-        LocalDateTime todayStart = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0);
+        LocalDateTime todayStart = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
         Map<String, Long> stats = new HashMap<>();
-        stats.put("todayLearned", progressRepository.countByUserIdAndCreatedAtAfter(userId, todayStart));
+
+        long todayNewCount = progressRepository.countByUserIdAndCreatedAtAfter(userId, todayStart);
+        long todayReviewCount = progressRepository
+                .countByUserIdAndUpdatedAtAfterAndCreatedAtBefore(userId, todayStart, todayStart);
+
+        stats.put("todayNewCount", todayNewCount);
+        stats.put("todayReviewCount", todayReviewCount);
+        stats.put("todayLearned", todayNewCount + todayReviewCount);
         stats.put("mastered", progressRepository.countByUserIdAndStatus(userId, "MASTERED"));
         stats.put("reviewing", progressRepository.countByUserIdAndStatus(userId, "REVIEW"));
         return stats;

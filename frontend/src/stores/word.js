@@ -36,11 +36,17 @@ export const useWordStore = defineStore('word', () => {
   const todayMinutes = ref(0)
   const streakDays = ref(0)
   const masteredCount = ref(0)
+  const todayNewCount = ref(0)
+  const todayReviewCount = ref(0)
 
   // --- Computed ---
 
   const dailyGoal = computed(() => newWordCount.value + newWordCount.value * reviewRatio.value)
   const reviewWordCount = computed(() => newWordCount.value * reviewRatio.value)
+  const dailyGoalPercent = computed(() => {
+    if (!dailyGoal.value) return 0
+    return Math.min(100, Math.round(((todayNewCount.value + todayReviewCount.value) / dailyGoal.value) * 100))
+  })
 
   const currentWord = computed(() => {
     const w = words.value[currentIndex.value]
@@ -79,6 +85,9 @@ export const useWordStore = defineStore('word', () => {
 
   // Settings persistence
   const _settingsLoaded = ref(false)
+  let _settingsResolve = null
+  const _settingsPromise = new Promise(resolve => { _settingsResolve = resolve })
+  function settingsReady() { return _settingsPromise }
   let _saveTimer = null
 
   async function fetchSettings() {
@@ -101,6 +110,7 @@ export const useWordStore = defineStore('word', () => {
       console.error('[WordStore] fetchSettings:', e.message)
     } finally {
       _settingsLoaded.value = true
+      if (_settingsResolve) { _settingsResolve(); _settingsResolve = null }
       // Flush any changes that happened during loading (e.g. selectBook)
       saveSettings()
     }
@@ -161,6 +171,14 @@ export const useWordStore = defineStore('word', () => {
     await fetchWords(0)
   }
 
+  // Fisher-Yates shuffle (in-place)
+  function _shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[arr[i], arr[j]] = [arr[j], arr[i]]
+    }
+  }
+
   async function fetchWords(page = 0, size = 20) {
     loading.value = true
     error.value = null
@@ -173,6 +191,11 @@ export const useWordStore = defineStore('word', () => {
       currentPage.value = pageData.number ?? page
       totalPages.value = pageData.totalPages ?? 0
       totalElements.value = pageData.totalElements ?? words.value.length
+
+      // Apply card order on client side
+      if (cardOrder.value === 'random') {
+        _shuffle(words.value)
+      }
     } catch (e) {
       error.value = e.message
       console.error('[WordStore] fetchWords:', e.message)
@@ -196,6 +219,8 @@ export const useWordStore = defineStore('word', () => {
       const data = await api.get('/learning/stats')
       const stats = data.data || {}
       todayLearned.value = stats.todayLearned || 0
+      todayNewCount.value = stats.todayNewCount || 0
+      todayReviewCount.value = stats.todayReviewCount || 0
       masteredCount.value = stats.mastered || 0
     } catch (e) {
       console.error('[WordStore] fetchStats:', e.message)
@@ -232,10 +257,28 @@ export const useWordStore = defineStore('word', () => {
 
   // --- Local Learning Actions ---
 
+  // Track daily new vs review counts
+  const _interactedToday = new Set()
+  function _trackWordInteraction() {
+    const word = currentWord.value
+    if (!word) return
+    const wasKnown = masteredIds.value.has(word.id)
+      || fuzzyIds.value.has(word.id)
+      || unknownIds.value.has(word.id)
+      || _interactedToday.has(word.id)
+    if (!wasKnown) {
+      todayNewCount.value++
+    } else {
+      todayReviewCount.value++
+    }
+    _interactedToday.add(word.id)
+  }
+
   function markMastered(word) {
     masteredIds.value.add(word.id)
     fuzzyIds.value.delete(word.id)
     unknownIds.value.delete(word.id)
+    _trackWordInteraction()
     recordReview(word.id, 5)
     nextWord()
   }
@@ -244,6 +287,7 @@ export const useWordStore = defineStore('word', () => {
     fuzzyIds.value.add(word.id)
     masteredIds.value.delete(word.id)
     unknownIds.value.delete(word.id)
+    _trackWordInteraction()
     recordReview(word.id, 2)
     nextWord()
   }
@@ -252,6 +296,7 @@ export const useWordStore = defineStore('word', () => {
     unknownIds.value.add(word.id)
     masteredIds.value.delete(word.id)
     fuzzyIds.value.delete(word.id)
+    _trackWordInteraction()
     recordReview(word.id, 0)
     nextWord()
   }
@@ -306,12 +351,13 @@ export const useWordStore = defineStore('word', () => {
     cardOrder, largeFont, darkMode, learningMode, dailyGoal, reviewWordCount,
     newWordCount, reviewRatio, examDate, bookProgress,
     todayLearned, todayMinutes, streakDays, masteredCount,
+    todayNewCount, todayReviewCount, dailyGoalPercent,
     currentWord, totalWords, progress, progressPercent,
     fetchBooks, selectBook, fetchWords, fetchWordDetail, fetchStats,
     recordReview, toggleFavorite,
     markMastered, markFuzzy, markUnknown,
     skipWord, nextWord, setOrder,
     toggleLargeFont, toggleDarkMode, setLearningMode,
-    fetchSettings, saveSettings,
+    fetchSettings, saveSettings, settingsReady,
   }
 })
