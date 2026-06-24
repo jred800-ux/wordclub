@@ -62,7 +62,9 @@ watch(() => store.currentWord, (newWord) => {
 watch(() => store.dailyGoalReached, (reached) => {
   if (reached) {
     showCompletion.value = true
-    setTimeout(() => router.push('/summary'), 1200)
+    if (!store.skipCheckin) {
+      setTimeout(() => router.push('/summary'), 1200)
+    }
   }
 })
 

@@ -91,8 +91,9 @@ watch(() => wordStore.darkMode, applyDarkMode)
       </div>
 
       <nav class="header-nav">
-        <router-link to="/">控制台</router-link>
+        <router-link to="/">单词学习</router-link>
         <router-link to="/library">词库</router-link>
+        <router-link to="/favorites">生词本</router-link>
         <router-link to="/summary">学习统计</router-link>
         <router-link to="/settings">设置</router-link>
       </nav>

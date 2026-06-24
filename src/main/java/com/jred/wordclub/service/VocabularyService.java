@@ -52,7 +52,7 @@ public class VocabularyService {
         return vocabularyRepository.findBySpellingOrParaphrase(keyword, pageable);
     }
 
-    public Map<String, Object> getBookProgress(Long userId, Long bookId) {
+    public Map<String, Object> getBookProgress(Long userId, Long bookId, int dailyNewWordCount) {
         Map<String, Object> result = new HashMap<>();
         Set<Long> blacklisted = blacklistService.getBlacklistedWordIds(userId);
         List<Long> excludeList = blacklisted.isEmpty() ? List.of(-1L) : new ArrayList<>(blacklisted);
@@ -64,6 +64,16 @@ public class VocabularyService {
         result.put("masteredCount", masteredCount);
         double pct = totalWords > 0 ? Math.round(studiedCount * 1000.0 / totalWords) / 10.0 : 0;
         result.put("completionPercent", pct);
+
+        // Estimated completion date
+        long remaining = totalWords - studiedCount;
+        if (remaining > 0 && dailyNewWordCount > 0) {
+            int daysNeeded = (int) Math.ceil((double) remaining / dailyNewWordCount);
+            String estimatedDate = java.time.LocalDate.now().plusDays(daysNeeded).toString();
+            result.put("estimatedCompletionDate", estimatedDate);
+        } else if (remaining <= 0) {
+            result.put("estimatedCompletionDate", "已完成");
+        }
 
         Optional<UserWordProgress> last = progressRepository
                 .findFirstByUserIdAndBookIdOrderByUpdatedAtDesc(userId, bookId);
@@ -148,6 +158,33 @@ public class VocabularyService {
 
     public boolean isFavorited(Long userId, Long wordId) {
         return favoriteRepository.findByUserIdAndWordId(userId, wordId).isPresent();
+    }
+
+    public long countFavorites(Long userId) {
+        return favoriteRepository.countByUserId(userId);
+    }
+
+    public List<Map<String, Object>> getFavoriteWords(Long userId) {
+        List<UserFavorite> favs = favoriteRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        if (favs.isEmpty()) return List.of();
+        List<Long> wordIds = favs.stream().map(UserFavorite::getWordId).toList();
+        Map<Long, Vocabulary> wordMap = vocabularyRepository.findByIdIn(wordIds)
+                .stream().collect(Collectors.toMap(Vocabulary::getId, v -> v));
+        // Preserve favorite order (newest first)
+        return favs.stream()
+                .filter(f -> wordMap.containsKey(f.getWordId()))
+                .map(f -> {
+                    Vocabulary v = wordMap.get(f.getWordId());
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("id", v.getId());
+                    item.put("spelling", v.getSpelling());
+                    item.put("ukPhonetic", v.getUkPhonetic());
+                    item.put("usPhonetic", v.getUsPhonetic());
+                    item.put("paraphrase", v.getParaphrase());
+                    item.put("frequency", v.getFrequency());
+                    item.put("favoritedAt", f.getCreatedAt());
+                    return item;
+                }).toList();
     }
 
     private void sm2Update(UserWordProgress p, int quality) {
