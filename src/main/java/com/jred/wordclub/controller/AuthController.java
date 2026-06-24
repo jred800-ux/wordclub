@@ -4,6 +4,7 @@ import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.stp.StpUtil;
 import com.jred.wordclub.common.Result;
 import com.jred.wordclub.dto.AuthResponse;
+import com.jred.wordclub.dto.DeleteAccountRequest;
 import com.jred.wordclub.dto.LoginRequest;
 import com.jred.wordclub.dto.RegisterRequest;
 import com.jred.wordclub.entity.User;
@@ -30,6 +31,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public Result<AuthResponse> login(@Valid @RequestBody LoginRequest req) {
+        rateLimitService.checkLogin(getClientIp());
         User user = userService.findByEmail(req.getEmail());
         if (!user.getEnabled()) {
             return Result.error(403, "账户已被禁用");
@@ -102,5 +104,18 @@ public class AuthController {
         long userId = StpUtil.getLoginIdAsLong();
         User user = userService.findById(userId);
         return Result.ok(new AuthResponse(token, AuthResponse.UserInfo.from(user)));
+    }
+
+    @DeleteMapping("/account")
+    @SaCheckLogin
+    public Result<?> deleteAccount(@Valid @RequestBody DeleteAccountRequest req) {
+        long userId = StpUtil.getLoginIdAsLong();
+        User user = userService.findById(userId);
+        if (!userService.verifyPassword(req.getPassword(), user.getPassword())) {
+            return Result.error(400, "密码错误，无法注销账号");
+        }
+        userService.deleteAccount(userId);
+        StpUtil.logout();
+        return Result.ok();
     }
 }

@@ -1,5 +1,6 @@
 package com.jred.wordclub.controller;
 
+import cn.dev33.satoken.stp.StpUtil;
 import com.jred.wordclub.common.Result;
 import com.jred.wordclub.entity.*;
 import com.jred.wordclub.service.VocabularyService;
@@ -22,7 +23,8 @@ public class VocabularyController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) Long bookId) {
-        Page<Vocabulary> result = vocabularyService.listWords(bookId, PageRequest.of(page, size));
+        Long userId = StpUtil.isLogin() ? StpUtil.getLoginIdAsLong() : null;
+        Page<Vocabulary> result = vocabularyService.listWords(bookId, userId, PageRequest.of(page, size));
         Map<String, Object> data = new HashMap<>();
         data.put("content", result.getContent());
         data.put("totalElements", result.getTotalElements());

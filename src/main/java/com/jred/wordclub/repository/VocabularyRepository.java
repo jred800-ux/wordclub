@@ -22,4 +22,15 @@ public interface VocabularyRepository extends JpaRepository<Vocabulary, Long> {
 
     @Query("SELECT COUNT(v) FROM Vocabulary v JOIN VocBook vb ON v.id = vb.wordId WHERE vb.bookId = :bookId")
     long countByBookId(Long bookId);
+
+    @Query("SELECT v FROM Vocabulary v JOIN VocBook vb ON v.id = vb.wordId WHERE vb.bookId = :bookId AND v.id NOT IN :excludeIds ORDER BY v.id ASC")
+    Page<Vocabulary> findByBookIdExcluding(Long bookId, List<Long> excludeIds, Pageable pageable);
+
+    @Query("SELECT COUNT(v) FROM Vocabulary v JOIN VocBook vb ON v.id = vb.wordId WHERE vb.bookId = :bookId AND v.id NOT IN :excludeIds")
+    long countByBookIdExcluding(Long bookId, List<Long> excludeIds);
+
+    List<Vocabulary> findByIdIn(List<Long> ids);
+
+    @Query("SELECT COUNT(v) FROM Vocabulary v JOIN VocBook vb ON v.id = vb.wordId WHERE vb.bookId = :bookId AND v.id <= :wordId")
+    long countByBookIdUpToWordId(Long bookId, Long wordId);
 }

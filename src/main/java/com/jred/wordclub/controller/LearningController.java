@@ -4,12 +4,18 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.jred.wordclub.common.Result;
 import com.jred.wordclub.entity.UserFavorite;
 import com.jred.wordclub.entity.UserWordProgress;
+import com.jred.wordclub.entity.UserSetting;
+import com.jred.wordclub.service.BlacklistService;
+import com.jred.wordclub.service.CheckinService;
+import com.jred.wordclub.service.UserSettingService;
 import com.jred.wordclub.service.VocabularyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/learning")
@@ -17,6 +23,9 @@ import java.util.Map;
 public class LearningController {
 
     private final VocabularyService vocabularyService;
+    private final UserSettingService userSettingService;
+    private final CheckinService checkinService;
+    private final BlacklistService blacklistService;
 
     @PostMapping("/review")
     public Result<UserWordProgress> recordReview(@RequestBody Map<String, Object> body) {
@@ -34,9 +43,15 @@ public class LearningController {
     }
 
     @GetMapping("/stats")
-    public Result<Map<String, Long>> stats() {
+    public Result<Map<String, Object>> stats() {
         long userId = StpUtil.getLoginIdAsLong();
-        return Result.ok(vocabularyService.getTodayStats(userId));
+        Map<String, Long> baseStats = vocabularyService.getTodayStats(userId);
+        Map<String, Object> stats = new HashMap<>(baseStats);
+        Map<String, Object> checkinStats = checkinService.getStats(userId);
+        stats.put("streakDays", checkinStats.get("streakDays"));
+        stats.put("totalCheckins", checkinStats.get("totalCheckins"));
+        stats.put("checkedInToday", checkinStats.get("checkedInToday"));
+        return Result.ok(stats);
     }
 
     @GetMapping("/progress/{wordId}")
@@ -77,5 +92,61 @@ public class LearningController {
     public Result<Boolean> checkFavorite(@PathVariable Long wordId) {
         long userId = StpUtil.getLoginIdAsLong();
         return Result.ok(vocabularyService.isFavorited(userId, wordId));
+    }
+
+    // --- Check-in ---
+
+    @PostMapping("/checkin")
+    public Result<Map<String, Object>> checkin() {
+        long userId = StpUtil.getLoginIdAsLong();
+        return Result.ok(checkinService.checkin(userId));
+    }
+
+    @GetMapping("/checkin/stats")
+    public Result<Map<String, Object>> checkinStats() {
+        long userId = StpUtil.getLoginIdAsLong();
+        return Result.ok(checkinService.getStats(userId));
+    }
+
+    // --- Blacklist (trash) ---
+
+    @PostMapping("/blacklist/{wordId}")
+    public Result<?> addToBlacklist(@PathVariable Long wordId) {
+        long userId = StpUtil.getLoginIdAsLong();
+        blacklistService.addToBlacklist(userId, wordId);
+        return Result.ok();
+    }
+
+    @DeleteMapping("/blacklist/{wordId}")
+    public Result<?> removeFromBlacklist(@PathVariable Long wordId) {
+        long userId = StpUtil.getLoginIdAsLong();
+        blacklistService.removeFromBlacklist(userId, wordId);
+        return Result.ok();
+    }
+
+    @GetMapping("/blacklist")
+    public Result<List<Map<String, Object>>> listBlacklist() {
+        long userId = StpUtil.getLoginIdAsLong();
+        return Result.ok(blacklistService.listBlacklist(userId));
+    }
+
+    @GetMapping("/blacklist/ids")
+    public Result<Set<Long>> blacklistedIds() {
+        long userId = StpUtil.getLoginIdAsLong();
+        return Result.ok(blacklistService.getBlacklistedWordIds(userId));
+    }
+
+    // --- Settings ---
+
+    @GetMapping("/settings")
+    public Result<UserSetting> getSettings() {
+        long userId = StpUtil.getLoginIdAsLong();
+        return Result.ok(userSettingService.getSettings(userId));
+    }
+
+    @PutMapping("/settings")
+    public Result<UserSetting> saveSettings(@RequestBody UserSetting body) {
+        long userId = StpUtil.getLoginIdAsLong();
+        return Result.ok(userSettingService.saveSettings(userId, body));
     }
 }

@@ -14,13 +14,19 @@ public interface UserWordProgressRepository extends JpaRepository<UserWordProgre
 
     List<UserWordProgress> findByUserIdAndNextReviewAtBefore(Long userId, LocalDateTime now);
 
+    long countByUserIdAndNextReviewAtBefore(Long userId, LocalDateTime now);
+
     long countByUserIdAndStatus(Long userId, String status);
 
     long countByUserIdAndCreatedAtAfter(Long userId, LocalDateTime since);
+
+    long countByUserIdAndUpdatedAtAfterAndCreatedAtBefore(Long userId, LocalDateTime updatedSince, LocalDateTime createdBefore);
 
     long countByUserIdAndBookId(Long userId, Long bookId);
 
     long countByUserIdAndBookIdAndStatus(Long userId, Long bookId, String status);
 
     Optional<UserWordProgress> findFirstByUserIdAndBookIdOrderByUpdatedAtDesc(Long userId, Long bookId);
+
+    void deleteAllByUserId(Long userId);
 }

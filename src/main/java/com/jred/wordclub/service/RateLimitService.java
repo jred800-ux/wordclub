@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 基于 Redis 的 IP 频率限制
+ * 基于 Redis 的 IP 频率限制（原子操作，无 TOCTOU 竞态）
  */
 @Service
 @RequiredArgsConstructor
@@ -17,7 +17,7 @@ public class RateLimitService {
     private final StringRedisTemplate redisTemplate;
 
     /**
-     * 检查是否被限流，未超限则计数+1。
+     * 检查是否被限流。使用先原子递增再判断的模式，避免 TOCTOU 竞态条件。
      *
      * @param action 操作类型标识（如 "register"）
      * @param ip     客户端 IP
@@ -27,22 +27,20 @@ public class RateLimitService {
      */
     private void check(String action, String ip, int maxRequests, int windowSeconds) {
         String key = "ratelimit:" + action + ":" + ip;
-        String countStr = redisTemplate.opsForValue().get(key);
 
-        if (countStr == null) {
-            // 首次请求，设置计数为 1，带过期时间
-            redisTemplate.opsForValue().set(key, "1", windowSeconds, TimeUnit.SECONDS);
-            return;
+        // 先原子递增（首次调用时 key 不存在，INCR 返回 1）
+        Long count = redisTemplate.opsForValue().increment(key);
+        if (count == null) count = 1L;
+
+        // 首次调用时设置过期时间
+        if (count == 1L) {
+            redisTemplate.expire(key, windowSeconds, TimeUnit.SECONDS);
         }
 
-        int count = Integer.parseInt(countStr);
-        if (count >= maxRequests) {
+        if (count > maxRequests) {
             long ttl = redisTemplate.getExpire(key, TimeUnit.SECONDS);
-            throw new RateLimitException("操作太频繁，请 " + ttl + " 秒后再试");
+            throw new RateLimitException("操作太频繁，请 " + Math.max(ttl, 0) + " 秒后再试");
         }
-
-        // 计数 +1，不重置过期时间
-        redisTemplate.opsForValue().increment(key);
     }
 
     /**
@@ -63,5 +61,15 @@ public class RateLimitService {
     public void checkSendCode(String ip) {
         check("sendcode:min", ip, 1, 60);
         check("sendcode:hour", ip, 10, 3600);
+    }
+
+    /**
+     * 登录接口限流（防暴力破解）：
+     * - 60 秒内最多 5 次
+     * - 3600 秒内最多 30 次
+     */
+    public void checkLogin(String ip) {
+        check("login:min", ip, 5, 60);
+        check("login:hour", ip, 30, 3600);
     }
 }

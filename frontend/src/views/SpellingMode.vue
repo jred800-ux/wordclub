@@ -1,17 +1,32 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useWordStore } from '../stores/word'
+import { useSpeech } from '../composables/useSpeech'
+import CompletionBanner from '../components/CompletionBanner.vue'
+import DailyGoalBar from '../components/DailyGoalBar.vue'
 
+const router = useRouter()
 const store = useWordStore()
+const { unlocked: audioUnlocked, unlock, playWord } = useSpeech()
 const letterSlots = ref([])
 const activeIndex = ref(0)
 const showHint = ref(false)
 const submitted = ref(false)
 const isCorrect = ref(false)
 const shakeKey = ref(0)
+const showCompletion = ref(false)
 
-onMounted(() => {
-  if (!store.words.length) store.fetchWords()
+onMounted(async () => {
+  await store.settingsReady()
+  store.fetchStats()
+  if (!store.words.length) {
+    if (store.selectedBookId) {
+      store.selectBook(store.selectedBookId)
+    } else {
+      store.fetchWords()
+    }
+  }
   setupSlots()
   window.addEventListener('keydown', onKeydown)
 })
@@ -25,10 +40,15 @@ const word = computed(() => store.currentWord)
 function setupSlots() {
   if (!word.value) return
   const len = word.value.spelling.length
-  letterSlots.value = Array.from({ length: len }, (_, i) => ({
-    letter: i === 0 || i === len - 1 ? word.value.spelling[i] : '',
-    prefill: i === 0 || i === len - 1,
-  }))
+  const minEditable = 1
+  const prefillCount = len <= 2 ? Math.max(0, len - minEditable) : 2
+  letterSlots.value = Array.from({ length: len }, (_, i) => {
+    const prefill = i < prefillCount || (prefillCount >= 2 && i === len - 1)
+    return {
+      letter: prefill ? word.value.spelling[i] : '',
+      prefill,
+    }
+  })
   activeIndex.value = letterSlots.value.findIndex(s => !s.prefill)
   showHint.value = false
   submitted.value = false
@@ -36,7 +56,10 @@ function setupSlots() {
 }
 
 function onKeydown(e) {
-  if (submitted.value) return
+  if (submitted.value) {
+    if (e.key === 'd' || e.key === 'D') nextWord()
+    return
+  }
   if (e.key === 'Enter') { submitWord(); return }
   if (e.ctrlKey && e.key === 'h') { revealHint(); e.preventDefault(); return }
 
@@ -47,7 +70,13 @@ function onKeydown(e) {
     activeIndex.value = findNextEmpty(idx + 1)
   }
   if (e.key === 'Backspace') {
-    if (activeIndex.value > 0) {
+    if (activeIndex.value === -1) {
+      const lastEditable = findLastEditable()
+      if (lastEditable !== -1) {
+        letterSlots.value[lastEditable].letter = ''
+        activeIndex.value = lastEditable
+      }
+    } else if (activeIndex.value > 0) {
       const prev = findPrevEditable(activeIndex.value - 1)
       if (prev !== -1) {
         letterSlots.value[prev].letter = ''
@@ -66,6 +95,13 @@ function findNextEmpty(start) {
 
 function findPrevEditable(start) {
   for (let i = start; i >= 0; i--) {
+    if (!letterSlots.value[i].prefill) return i
+  }
+  return -1
+}
+
+function findLastEditable() {
+  for (let i = letterSlots.value.length - 1; i >= 0; i--) {
     if (!letterSlots.value[i].prefill) return i
   }
   return -1
@@ -95,42 +131,51 @@ function submitWord() {
 }
 
 function nextWord() {
+  unlock()
   store.nextWord()
   nextTick(setupSlots)
 }
 
 function skipWord() {
+  unlock()
   store.skipWord()
   nextTick(setupSlots)
 }
 
-function playAudio() {
-  if (!word.value || !window.speechSynthesis) return
-  const u = new SpeechSynthesisUtterance(word.value.spelling)
-  u.lang = 'en-US'
-  u.rate = 0.8
-  speechSynthesis.speak(u)
+function handlePlayAudio() {
+  unlock()
+  playWord(word.value)
 }
 
-// Auto-play pronunciation when word changes
+// Auto-play only after first user interaction
 watch(word, (newWord) => {
-  if (newWord) {
-    setTimeout(() => playAudio(), 300)
+  if (newWord && audioUnlocked.value) playWord(newWord)
+})
+
+// Show completion banner when daily goal reached and auto-redirect
+watch(() => store.dailyGoalReached, (reached) => {
+  if (reached) {
+    showCompletion.value = true
+    setTimeout(() => router.push('/summary'), 1200)
   }
 })
+
+async function handleTrash() {
+  if (!word.value || submitted.value) return
+  await store.addToBlacklist(word.value.id)
+  unlock()
+  store.nextWord()
+  nextTick(setupSlots)
+}
 </script>
 
 <template>
-  <div class="spelling-mode" v-if="word">
-    <!-- Progress -->
-    <div class="progress-section">
-      <div class="progress-label">
-        学习进度 <strong>{{ store.progress }} / {{ store.totalWords }}</strong>
-      </div>
-      <div class="progress-bar">
-        <div class="progress-fill" :style="{ width: store.progressPercent + '%' }"></div>
-      </div>
-    </div>
+  <div class="spelling-mode" :class="{ 'large-font': store.largeFont }" v-if="word">
+    <!-- Daily Goal -->
+    <DailyGoalBar />
+
+    <!-- Completion Banner -->
+    <CompletionBanner :show="showCompletion" @close="showCompletion = false" />
 
     <!-- Word Info -->
     <div class="spelling-card">
@@ -143,7 +188,7 @@ watch(word, (newWord) => {
       <!-- Pronunciation -->
       <div class="phonetic-row">
         <span class="phonetic-text">{{ word.phonetic || `/${word.spelling}/` }}</span>
-        <button class="audio-btn" @click="playAudio" title="发音">
+        <button class="audio-btn" @click="handlePlayAudio" title="发音" aria-label="播放发音">
           <span class="material-icons">volume_up</span>
         </button>
       </div>
@@ -165,6 +210,7 @@ watch(word, (newWord) => {
           ]"
           @click="setActive(idx)"
           :disabled="slot.prefill || submitted"
+          :aria-label="`字母 ${idx + 1}：${slot.letter || '空'}`"
         >
           {{ slot.letter || '_' }}
         </button>
@@ -172,10 +218,10 @@ watch(word, (newWord) => {
 
       <!-- Result -->
       <div v-if="submitted" class="result-row">
-        <div v-if="isCorrect" class="result-msg success">
+        <div v-if="isCorrect" class="result-msg success" role="status">
           <span class="material-icons">check_circle</span> 正确！
         </div>
-        <div v-else class="result-msg error">
+        <div v-else class="result-msg error" role="status">
           <span class="material-icons">cancel</span>
           正确答案：<strong>{{ word.spelling }}</strong>
         </div>
@@ -194,16 +240,20 @@ watch(word, (newWord) => {
           v-if="!submitted"
           class="btn-primary"
           @click="submitWord"
-          :disabled="letterSlots.every(s => s.prefill || s.letter)"
+          :disabled="!letterSlots.every(s => s.prefill || s.letter)"
         >
           确认
           <span class="shortcut">ENTER 提交</span>
         </button>
         <button v-else class="btn-primary" @click="nextWord">
           下一个 <span class="material-icons">arrow_forward</span>
+          <span class="shortcut">D 键</span>
         </button>
         <button class="btn-ghost" @click="skipWord" :disabled="submitted">
           <span class="material-icons">skip_next</span> 跳过此词
+        </button>
+        <button class="btn-ghost trash-btn" @click="handleTrash" :disabled="submitted">
+          <span class="material-icons">delete_outline</span> 扔进垃圾桶
         </button>
       </div>
     </div>
@@ -221,13 +271,6 @@ watch(word, (newWord) => {
   margin: 0 auto;
   padding: 32px 20px;
 }
-
-/* Progress */
-.progress-section { margin-bottom: 32px; }
-.progress-label { font-size: 14px; color: var(--color-text-secondary); margin-bottom: 8px; }
-.progress-label strong { color: var(--color-text-primary); }
-.progress-bar { height: 6px; background: var(--color-border); border-radius: var(--radius-full); overflow: hidden; }
-.progress-fill { height: 100%; background: var(--color-primary); border-radius: var(--radius-full); transition: width 0.4s; }
 
 /* Card */
 .spelling-card {
@@ -275,6 +318,7 @@ watch(word, (newWord) => {
   background: var(--color-primary-light);
   color: var(--color-primary);
   border-radius: var(--radius-full);
+  cursor: pointer;
 }
 
 /* Letter Slots */
@@ -340,6 +384,7 @@ watch(word, (newWord) => {
   font-size: 14px;
   font-weight: 500;
   border-radius: var(--radius-sm);
+  cursor: pointer;
   transition: background 0.15s;
 }
 .text-btn:hover:not(:disabled) { background: var(--color-warning-light); }
@@ -363,6 +408,7 @@ watch(word, (newWord) => {
   font-size: 15px;
   font-weight: 600;
   border-radius: var(--radius-md);
+  cursor: pointer;
   transition: background 0.15s, opacity 0.15s;
 }
 .btn-primary:hover:not(:disabled) { background: var(--color-primary-dark); }
@@ -382,9 +428,11 @@ watch(word, (newWord) => {
   color: var(--color-text-muted);
   font-size: 13px;
   border-radius: var(--radius-sm);
+  cursor: pointer;
   transition: background 0.15s;
 }
 .btn-ghost:hover:not(:disabled) { background: var(--color-divider); }
+.trash-btn { color: #9ca3af; }
 
 /* Empty */
 .empty-state { text-align: center; padding: 80px 20px; color: var(--color-text-muted); }

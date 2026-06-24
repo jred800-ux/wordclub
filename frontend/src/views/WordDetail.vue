@@ -22,7 +22,10 @@ onMounted(async () => {
     const api = (await import('../api')).default
     const res = await api.get(`/learning/favorites/${id}/check`)
     isFav.value = res?.data ?? res ?? false
-  } catch {}
+  } catch (e) {
+    // Favorite check is non-critical — ignore and leave isFav as false
+    console.warn('[WordDetail] Favorite check failed:', e.message)
+  }
   loading.value = false
 })
 

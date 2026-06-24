@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.Random;
+import java.security.SecureRandom;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -18,9 +18,11 @@ public class VerificationService {
     private static final String PREFIX = "email:code:";
     private static final int CODE_TTL = 5; // 分钟
 
-    /** 生成 6 位随机数字验证码 */
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+    /** 生成 6 位随机数字验证码（使用密码学安全的 SecureRandom） */
     public String generateCode() {
-        return String.format("%06d", new Random().nextInt(999999));
+        return String.format("%06d", SECURE_RANDOM.nextInt(999999));
     }
 
     /** 将验证码存入 Redis */

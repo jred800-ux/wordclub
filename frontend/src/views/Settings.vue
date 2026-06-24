@@ -1,10 +1,13 @@
 <script setup>
-import { onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWordStore } from '../stores/word'
+import api from '../api'
 
 const router = useRouter()
 const store = useWordStore()
+const trashedWords = ref([])
+const trashedCount = computed(() => trashedWords.value.length)
 
 const gradients = [
   'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -27,14 +30,35 @@ const examDates = [
 
 onMounted(() => {
   store.fetchBooks()
+  fetchTrash()
 })
+
+async function fetchTrash() {
+  try {
+    const res = await api.get('/learning/blacklist')
+    trashedWords.value = (res.data || res) || []
+  } catch (e) {
+    console.error('fetchTrash:', e)
+  }
+}
+
+async function restoreWord(wordId) {
+  try {
+    await api.delete(`/learning/blacklist/${wordId}`)
+    trashedWords.value = trashedWords.value.filter(w => w.wordId !== wordId)
+    store.removeFromBlacklist(wordId)
+  } catch (e) {
+    console.error('restoreWord:', e)
+  }
+}
 
 function selectBook(book) {
   store.selectBook(book.id)
 }
 
 function startLearning() {
-  router.push('/learn/first-sight')
+  const path = store.learningMode === 'spelling' ? '/learn/spelling' : '/learn/first-sight'
+  router.push(path)
 }
 
 function resetProgress() {
@@ -236,6 +260,71 @@ function resetProgress() {
           <option value="">不设置考试目标</option>
           <option v-for="d in examDates" :key="d.value" :value="d.value">{{ d.label }}</option>
         </select>
+      </div>
+    </section>
+
+    <!-- 6. 垃圾桶 -->
+    <section class="settings-section">
+      <div class="section-title">
+        <span class="material-icons">delete_outline</span>
+        <div>
+          <strong>垃圾桶</strong>
+          <p>被你标记为"太简单"的单词（共 {{ trashedCount }} 个）</p>
+        </div>
+      </div>
+
+      <div v-if="trashedWords.length === 0" class="empty-hint">
+        垃圾桶是空的。在学习时将太简单的词扔进垃圾桶，它们就不会再出现在每日背诵中。
+      </div>
+
+      <div v-else class="trash-list">
+        <div v-for="item in trashedWords" :key="item.wordId" class="trash-item">
+          <div class="trash-word-info">
+            <strong>{{ item.spelling }}</strong>
+            <span>{{ item.paraphrase }}</span>
+          </div>
+          <button class="btn-restore" @click="restoreWord(item.wordId)">
+            <span class="material-icons">restore</span> 恢复
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. 学习模式 -->
+    <section class="settings-section">
+      <div class="section-title">
+        <span class="material-icons">psychology</span>
+        <div>
+          <strong>学习模式</strong>
+          <p>选择默认的学习方式，控制台点击"开始学习"将直接进入此模式</p>
+        </div>
+      </div>
+
+      <div class="mode-select">
+        <button
+          class="mode-option"
+          :class="{ active: store.learningMode === 'first-sight' }"
+          @click="store.setLearningMode('first-sight')"
+        >
+          <span class="material-icons mode-opt-icon">visibility</span>
+          <div class="mode-opt-text">
+            <strong>认读模式</strong>
+            <p>看到单词，判断是否认识</p>
+          </div>
+          <span v-if="store.learningMode === 'first-sight'" class="material-icons check-icon">check_circle</span>
+        </button>
+        <button
+          class="mode-option"
+          :class="{ active: store.learningMode === 'spelling' }"
+          @click="store.setLearningMode('spelling')"
+        >
+          <span class="material-icons mode-opt-icon">edit</span>
+          <div class="mode-opt-text">
+            <strong>拼写模式</strong>
+            <p>根据释义拼写出单词</p>
+          </div>
+          <span v-if="store.learningMode === 'spelling'" class="material-icons check-icon">check_circle</span>
+        </button>
       </div>
     </section>
 
@@ -599,6 +688,59 @@ function resetProgress() {
   cursor: pointer;
 }
 
+/* Learning Mode Selector */
+.mode-select {
+  display: flex;
+  gap: 12px;
+}
+.mode-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  text-align: left;
+}
+.mode-option:hover {
+  border-color: var(--color-primary);
+}
+.mode-option.active {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+.mode-opt-icon {
+  font-size: 32px;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  padding: 10px;
+  border-radius: var(--radius-lg);
+  flex-shrink: 0;
+}
+.mode-opt-text {
+  flex: 1;
+}
+.mode-opt-text strong {
+  display: block;
+  font-size: 15px;
+  color: var(--color-text-primary);
+  margin-bottom: 2px;
+}
+.mode-opt-text p {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+.check-icon {
+  font-size: 24px;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
 /* CTA */
 .settings-cta {
   margin-top: 28px;
@@ -622,6 +764,62 @@ function resetProgress() {
 }
 .cta-btn:hover {
   background: var(--color-primary-dark);
+}
+
+/* Trash List */
+.trash-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.trash-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--color-bg);
+  border-radius: var(--radius-md);
+  gap: 12px;
+}
+.trash-word-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.trash-word-info strong {
+  font-size: 14px;
+  color: var(--color-text-primary);
+}
+.trash-word-info span {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.btn-restore {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-restore:hover { background: var(--color-primary-light); }
+.empty-hint {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 20px 12px;
 }
 
 @media (max-width: 640px) {

@@ -1,14 +1,21 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
+import { useWordStore } from './stores/word'
+import api from './api'
 import SearchModal from './components/SearchModal.vue'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const wordStore = useWordStore()
 const showSearch = ref(false)
 const showUserMenu = ref(false)
+const showDeleteDialog = ref(false)
+const deletePassword = ref('')
+const deleteError = ref('')
+const deleting = ref(false)
 
 const isGuestPage = computed(() => {
   return ['Login', 'Register'].includes(route.name)
@@ -19,6 +26,51 @@ function handleLogout() {
   authStore.logout()
   router.push('/login')
 }
+
+function goAdmin() {
+  showUserMenu.value = false
+  router.push('/admin')
+}
+
+async function handleDeleteAccount() {
+  if (!deletePassword.value) return
+  deleting.value = true
+  deleteError.value = ''
+  try {
+    await api.delete('/auth/account', { data: { password: deletePassword.value } })
+    authStore.logout()
+    showDeleteDialog.value = false
+    router.push('/login')
+  } catch (e) {
+    deleteError.value = e.response?.data?.message || '注销失败，请重试'
+  } finally {
+    deleting.value = false
+  }
+}
+
+// Load user settings when authenticated
+onMounted(() => {
+  if (authStore.isLoggedIn) {
+    wordStore.fetchSettings()
+  }
+})
+
+watch(() => authStore.isLoggedIn, (loggedIn) => {
+  if (loggedIn) {
+    wordStore.fetchSettings()
+  }
+})
+
+// Dark mode — toggle class on <html> so :root.dark CSS applies
+function applyDarkMode(enabled) {
+  if (enabled) {
+    document.documentElement.classList.add('dark')
+  } else {
+    document.documentElement.classList.remove('dark')
+  }
+}
+if (wordStore.darkMode) applyDarkMode(true)
+watch(() => wordStore.darkMode, applyDarkMode)
 </script>
 
 <template>
@@ -43,8 +95,6 @@ function handleLogout() {
         <router-link to="/library">词库</router-link>
         <router-link to="/summary">学习统计</router-link>
         <router-link to="/settings">设置</router-link>
-        <router-link to="/learn/first-sight">认读模式</router-link>
-        <router-link to="/learn/spelling">拼写模式</router-link>
       </nav>
 
       <div class="header-actions">
@@ -64,6 +114,10 @@ function handleLogout() {
             <span class="material-icons arrow" :class="{ open: showUserMenu }">arrow_drop_down</span>
           </div>
           <div v-if="showUserMenu" class="user-dropdown" @click.self="showUserMenu = false">
+            <div v-if="authStore.isAdmin" class="dropdown-item" @click="goAdmin">
+              <span class="material-icons">admin_panel_settings</span>
+              <span>管理面板</span>
+            </div>
             <div class="dropdown-item">
               <span class="material-icons">help_outline</span>
               <span>帮助中心</span>
@@ -75,6 +129,11 @@ function handleLogout() {
             <div class="dropdown-item" @click="handleLogout">
               <span class="material-icons">logout</span>
               <span>退出登录</span>
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item danger" @click="showUserMenu = false; showDeleteDialog = true">
+              <span class="material-icons">delete_forever</span>
+              <span>注销账号</span>
             </div>
           </div>
         </div>
@@ -92,6 +151,28 @@ function handleLogout() {
 
     <!-- Search Modal -->
     <SearchModal :visible="showSearch" @close="showSearch = false" />
+
+    <!-- Delete Account Dialog -->
+    <div v-if="showDeleteDialog" class="dialog-overlay" @click.self="showDeleteDialog = false">
+      <div class="dialog-card">
+        <h3>注销账号</h3>
+        <p>此操作不可撤销。所有学习进度、收藏、设置将被永久删除。请输入密码确认：</p>
+        <input
+          v-model="deletePassword"
+          type="password"
+          placeholder="输入密码"
+          class="dialog-input"
+          @keyup.enter="handleDeleteAccount"
+        />
+        <p v-if="deleteError" class="dialog-error">{{ deleteError }}</p>
+        <div class="dialog-actions">
+          <button class="dialog-btn cancel" @click="showDeleteDialog = false">取消</button>
+          <button class="dialog-btn confirm" @click="handleDeleteAccount" :disabled="deleting">
+            {{ deleting ? '注销中...' : '确认注销' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -283,6 +364,17 @@ function handleLogout() {
 .dropdown-item .material-icons {
   font-size: 18px;
 }
+.dropdown-item.danger {
+  color: var(--color-danger);
+}
+.dropdown-item.danger:hover {
+  background: var(--color-danger-light);
+}
+.dropdown-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 4px 0;
+}
 
 /* ===== Body Layout ===== */
 .app-body {
@@ -294,6 +386,76 @@ function handleLogout() {
   flex: 1;
   overflow-y: auto;
 }
+
+/* ===== Delete Account Dialog ===== */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.dialog-card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  padding: 28px;
+  max-width: 400px;
+  width: 90%;
+}
+.dialog-card h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 8px;
+}
+.dialog-card p {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+.dialog-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--color-text-primary);
+  background: var(--color-bg);
+  margin-bottom: 12px;
+  box-sizing: border-box;
+}
+.dialog-input:focus { outline: none; border-color: var(--color-primary); }
+.dialog-error {
+  color: var(--color-danger);
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.dialog-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.dialog-btn {
+  padding: 8px 20px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.dialog-btn.cancel {
+  background: var(--color-divider);
+  color: var(--color-text-secondary);
+}
+.dialog-btn.confirm {
+  background: var(--color-danger);
+  color: #fff;
+}
+.dialog-btn.confirm:disabled { opacity: 0.6; cursor: default; }
 
 /* ===== Responsive ===== */
 @media (max-width: 768px) {

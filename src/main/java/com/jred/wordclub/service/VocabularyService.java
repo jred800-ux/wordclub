@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +21,7 @@ public class VocabularyService {
     private final VocExampleRepository vocExampleRepository;
     private final UserWordProgressRepository progressRepository;
     private final UserFavoriteRepository favoriteRepository;
+    private final BlacklistService blacklistService;
 
     public List<Book> listBooks() {
         return bookRepository.findAll();
@@ -29,9 +31,15 @@ public class VocabularyService {
         return bookRepository.findById(bookId);
     }
 
-    public Page<Vocabulary> listWords(Long bookId, Pageable pageable) {
+    public Page<Vocabulary> listWords(Long bookId, Long userId, Pageable pageable) {
         if (bookId != null) {
-            return vocabularyRepository.findByBookId(bookId, pageable);
+            Set<Long> blacklistedIds = userId != null
+                    ? blacklistService.getBlacklistedWordIds(userId)
+                    : Collections.emptySet();
+            List<Long> excludeList = blacklistedIds.isEmpty()
+                    ? List.of(-1L)
+                    : new ArrayList<>(blacklistedIds);
+            return vocabularyRepository.findByBookIdExcluding(bookId, excludeList, pageable);
         }
         return vocabularyRepository.findAll(pageable);
     }
@@ -46,7 +54,9 @@ public class VocabularyService {
 
     public Map<String, Object> getBookProgress(Long userId, Long bookId) {
         Map<String, Object> result = new HashMap<>();
-        long totalWords = vocabularyRepository.countByBookId(bookId);
+        Set<Long> blacklisted = blacklistService.getBlacklistedWordIds(userId);
+        List<Long> excludeList = blacklisted.isEmpty() ? List.of(-1L) : new ArrayList<>(blacklisted);
+        long totalWords = vocabularyRepository.countByBookIdExcluding(bookId, excludeList);
         result.put("totalWords", totalWords);
         long studiedCount = progressRepository.countByUserIdAndBookId(userId, bookId);
         result.put("studiedCount", studiedCount);
@@ -60,13 +70,12 @@ public class VocabularyService {
         if (last.isPresent()) {
             Long lastWordId = last.get().getWordId();
             result.put("lastWordId", lastWordId);
-            List<Vocabulary> allWords = vocabularyRepository.findAllByBookId(bookId);
-            for (int i = 0; i < allWords.size(); i++) {
-                if (allWords.get(i).getId().equals(lastWordId)) {
-                    result.put("resumePage", i / 20);
-                    result.put("resumeIndex", i % 20);
-                    break;
-                }
+            // Use COUNT query to find position — avoids loading all words into memory
+            long pos = vocabularyRepository.countByBookIdUpToWordId(bookId, lastWordId);
+            if (pos > 0) {
+                int zeroIndexed = (int) (pos - 1);
+                result.put("resumePage", zeroIndexed / 20);
+                result.put("resumeIndex", zeroIndexed % 20);
             }
         }
         return result;
@@ -97,9 +106,18 @@ public class VocabularyService {
     }
 
     public Map<String, Long> getTodayStats(Long userId) {
-        LocalDateTime todayStart = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0);
+        LocalDateTime todayStart = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
         Map<String, Long> stats = new HashMap<>();
-        stats.put("todayLearned", progressRepository.countByUserIdAndCreatedAtAfter(userId, todayStart));
+
+        long todayNewCount = progressRepository.countByUserIdAndCreatedAtAfter(userId, todayStart);
+        long todayReviewCount = progressRepository
+                .countByUserIdAndUpdatedAtAfterAndCreatedAtBefore(userId, todayStart, todayStart);
+        long pendingReviewCount = progressRepository.countByUserIdAndNextReviewAtBefore(userId, LocalDateTime.now());
+
+        stats.put("todayNewCount", todayNewCount);
+        stats.put("todayReviewCount", todayReviewCount);
+        stats.put("pendingReviewCount", pendingReviewCount);
+        stats.put("todayLearned", todayNewCount + todayReviewCount);
         stats.put("mastered", progressRepository.countByUserIdAndStatus(userId, "MASTERED"));
         stats.put("reviewing", progressRepository.countByUserIdAndStatus(userId, "REVIEW"));
         return stats;

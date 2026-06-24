@@ -1,16 +1,32 @@
 <script setup>
 import { onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useWordStore } from '../stores/word'
+import { useSpeech } from '../composables/useSpeech'
+import CompletionBanner from '../components/CompletionBanner.vue'
+import DailyGoalBar from '../components/DailyGoalBar.vue'
 
+const router = useRouter()
 const store = useWordStore()
+const { unlocked: audioUnlocked, unlock, playWord } = useSpeech()
 const statusMsg = ref('')
+const showCompletion = ref(false)
 
-onMounted(() => {
-  if (!store.words.length) store.fetchWords()
+onMounted(async () => {
+  await store.settingsReady()
+  store.fetchStats()
+  if (!store.words.length) {
+    if (store.selectedBookId) {
+      store.selectBook(store.selectedBookId)
+    } else {
+      store.fetchWords()
+    }
+  }
 })
 
 function handleMastered() {
   if (!store.currentWord) return
+  unlock()
   store.markMastered(store.currentWord)
   statusMsg.value = '已存入掌握列表'
   setTimeout(() => (statusMsg.value = ''), 2000)
@@ -18,6 +34,7 @@ function handleMastered() {
 
 function handleFuzzy() {
   if (!store.currentWord) return
+  unlock()
   store.markFuzzy(store.currentWord)
   statusMsg.value = '已标记为模糊'
   setTimeout(() => (statusMsg.value = ''), 2000)
@@ -25,41 +42,49 @@ function handleFuzzy() {
 
 function handleUnknown() {
   if (!store.currentWord) return
+  unlock()
   store.markUnknown(store.currentWord)
   statusMsg.value = '已标记为不认识'
   setTimeout(() => (statusMsg.value = ''), 2000)
 }
 
-function playAudio() {
-  const word = store.currentWord?.spelling
-  if (word && window.speechSynthesis) {
-    const u = new SpeechSynthesisUtterance(word)
-    u.lang = 'en-US'
-    u.rate = 0.8
-    speechSynthesis.speak(u)
-  }
+function handlePlayAudio() {
+  unlock()
+  playWord(store.currentWord)
 }
 
-// Auto-play pronunciation when word changes
-watch(() => store.currentWord, () => {
-  if (store.currentWord) {
-    setTimeout(() => playAudio(), 300)
+// Auto-play only after first user interaction (avoids Chrome speechSynthesis blocking)
+watch(() => store.currentWord, (newWord) => {
+  if (newWord && audioUnlocked.value) playWord(newWord)
+})
+
+// Show completion banner when daily goal reached and auto-redirect
+watch(() => store.dailyGoalReached, (reached) => {
+  if (reached) {
+    showCompletion.value = true
+    setTimeout(() => router.push('/summary'), 1200)
   }
 })
+
+async function handleTrash() {
+  if (!store.currentWord) return
+  unlock()
+  await store.addToBlacklist(store.currentWord.id)
+  statusMsg.value = '已扔进垃圾桶'
+  setTimeout(() => {
+    statusMsg.value = ''
+    store.nextWord()
+  }, 800)
+}
 </script>
 
 <template>
-  <div class="first-sight" v-if="store.currentWord">
-    <!-- Progress -->
-    <div class="progress-section">
-      <div class="progress-label">
-        学习进度
-        <strong>{{ store.progress }} / {{ store.totalWords }}</strong>
-      </div>
-      <div class="progress-bar">
-        <div class="progress-fill" :style="{ width: store.progressPercent + '%' }"></div>
-      </div>
-    </div>
+  <div class="first-sight" :class="{ 'large-font': store.largeFont }" v-if="store.currentWord">
+    <!-- Daily Goal -->
+    <DailyGoalBar />
+
+    <!-- Completion Banner -->
+    <CompletionBanner :show="showCompletion" @close="showCompletion = false" />
 
     <!-- Word Card -->
     <div class="word-card">
@@ -67,7 +92,7 @@ watch(() => store.currentWord, () => {
         <h1 class="word-spelling">{{ store.currentWord.spelling }}</h1>
         <div class="word-phonetic">
           {{ store.currentWord.phonetic || `/${store.currentWord.spelling}/` }}
-          <button class="audio-btn" @click="playAudio" title="发音">
+          <button class="audio-btn" @click="handlePlayAudio" title="发音" aria-label="播放发音">
             <span class="material-icons">volume_up</span>
           </button>
         </div>
@@ -97,6 +122,10 @@ watch(() => store.currentWord, () => {
         <span class="material-icons">check</span>
         <span class="action-label">认识</span>
       </button>
+      <button class="action-btn trash" @click="handleTrash">
+        <span class="material-icons">delete_outline</span>
+        <span class="action-label">太简单</span>
+      </button>
     </div>
 
     <!-- Status Banner -->
@@ -121,31 +150,6 @@ watch(() => store.currentWord, () => {
   max-width: 640px;
   margin: 0 auto;
   padding: 32px 20px;
-}
-
-/* Progress */
-.progress-section {
-  margin-bottom: 32px;
-}
-.progress-label {
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  margin-bottom: 8px;
-}
-.progress-label strong {
-  color: var(--color-text-primary);
-}
-.progress-bar {
-  height: 6px;
-  background: var(--color-border);
-  border-radius: var(--radius-full);
-  overflow: hidden;
-}
-.progress-fill {
-  height: 100%;
-  background: var(--color-primary);
-  border-radius: var(--radius-full);
-  transition: width 0.4s ease;
 }
 
 /* Word Card */
@@ -184,6 +188,7 @@ watch(() => store.currentWord, () => {
   background: var(--color-primary-light);
   color: var(--color-primary);
   border-radius: var(--radius-full);
+  cursor: pointer;
   transition: background 0.15s;
 }
 .audio-btn:hover { background: #dde4ff; }
@@ -205,6 +210,7 @@ watch(() => store.currentWord, () => {
   font-size: 14px;
   color: var(--color-primary);
   font-weight: 500;
+  text-decoration: none;
   padding: 6px 16px;
   border-radius: var(--radius-full);
   transition: background 0.15s;
@@ -229,6 +235,7 @@ watch(() => store.currentWord, () => {
   border: 2px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
+  cursor: pointer;
   transition: all 0.15s;
   min-width: 100px;
 }
@@ -249,6 +256,11 @@ watch(() => store.currentWord, () => {
   border-color: var(--color-success);
   background: var(--color-success-light);
   color: var(--color-success);
+}
+.action-btn.trash:hover {
+  border-color: #9ca3af;
+  background: #f3f4f6;
+  color: #6b7280;
 }
 
 /* Status Banner */

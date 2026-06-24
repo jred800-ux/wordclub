@@ -61,6 +61,12 @@ const routes = [
     component: () => import('../views/StudySummary.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/admin',
+    name: 'AdminPanel',
+    component: () => import('../views/AdminPanel.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
 ]
 
 const router = createRouter({
@@ -75,6 +81,14 @@ router.beforeEach((to, from) => {
   // 需要登录的页面 → 无 token 跳登录
   if (to.meta.requiresAuth && !token) {
     return { name: 'Login', query: { redirect: to.fullPath } }
+  }
+
+  // 需要管理员权限
+  if (to.meta.requiresAdmin) {
+    const role = localStorage.getItem('userRole')
+    if (role !== 'ADMIN') {
+      return { name: 'Home' }
+    }
   }
 
   // 已登录访问 guest 页面（登录/注册） → 跳首页

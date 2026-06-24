@@ -1,8 +1,14 @@
 <script setup>
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useWordStore } from '../stores/word'
 
 const store = useWordStore()
+
+const learnPath = computed(() => {
+  // If daily goal already reached today, go to study summary
+  if (store.dailyGoalReached) return '/summary'
+  return store.learningMode === 'spelling' ? '/learn/spelling' : '/learn/first-sight'
+})
 
 onMounted(async () => {
   await store.fetchBooks()
@@ -21,7 +27,7 @@ onMounted(async () => {
     <div class="hero-banner">
       <h1>欢迎回来</h1>
       <p>继续你的词汇精进之旅。</p>
-      <router-link to="/learn/first-sight" class="hero-cta">
+      <router-link :to="learnPath" class="hero-cta">
         开始学习
         <span class="material-icons">arrow_forward</span>
       </router-link>
@@ -34,29 +40,12 @@ onMounted(async () => {
         <div class="q-label">今日已学</div>
       </div>
       <div class="q-stat">
-        <div class="q-number">{{ store.todayMinutes }}m</div>
-        <div class="q-label">学习时长</div>
-      </div>
-      <div class="q-stat">
         <div class="q-number">{{ store.streakDays }}</div>
         <div class="q-label">连续天数</div>
       </div>
-    </div>
-
-    <!-- Mode Cards -->
-    <div class="mode-section">
-      <h2>选择学习模式</h2>
-      <div class="mode-cards">
-        <router-link to="/learn/first-sight" class="mode-card">
-          <span class="material-icons mode-icon">visibility</span>
-          <h3>认读模式</h3>
-          <p>看到单词，选择是否认识</p>
-        </router-link>
-        <router-link to="/learn/spelling" class="mode-card">
-          <span class="material-icons mode-icon">edit</span>
-          <h3>拼写模式</h3>
-          <p>根据释义拼写出单词</p>
-        </router-link>
+      <div class="q-stat">
+        <div class="q-number">{{ store.masteredCount }}</div>
+        <div class="q-label">已掌握</div>
       </div>
     </div>
 
@@ -141,51 +130,6 @@ onMounted(async () => {
   margin-top: 2px;
 }
 
-.mode-section h2 {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 14px;
-}
-.mode-cards {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 32px;
-}
-.mode-card {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 28px 20px;
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  text-decoration: none;
-  transition: box-shadow 0.2s, transform 0.2s;
-  text-align: center;
-}
-.mode-card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-}
-.mode-icon {
-  font-size: 36px;
-  color: var(--color-primary);
-  background: var(--color-primary-light);
-  padding: 12px;
-  border-radius: var(--radius-xl);
-}
-.mode-card h3 {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-.mode-card p {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-}
-
 .recent-section h2 {
   font-size: 18px;
   font-weight: 600;
@@ -215,6 +159,5 @@ onMounted(async () => {
 @media (max-width: 640px) {
   .home-dashboard { padding: 20px 12px; }
   .quick-stats { flex-direction: column; gap: 8px; }
-  .mode-cards { flex-direction: column; }
 }
 </style>

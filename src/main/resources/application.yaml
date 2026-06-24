@@ -4,8 +4,8 @@ spring:
 
   datasource:
     url: jdbc:mysql://localhost:3306/wordclub?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf-8&allowPublicKeyRetrieval=true
-    username: root
-    password: 123123
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:123123}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -25,8 +25,8 @@ spring:
   mail:
     host: smtp.qq.com
     port: 465
-    username: 2407633568@qq.com
-    password: lvesaxjnxmlsdhij
+    username: ${MAIL_USERNAME:2407633568@qq.com}
+    password: ${MAIL_PASSWORD:}
     properties:
       mail.smtp.auth: true
       mail.smtp.ssl.enable: true
@@ -43,5 +43,5 @@ sa-token:
   is-concurrent: true
   max-login-count: 3
   is-log: true
-  # JWT 密钥（32位+）
-  jwt-secret-key: wordclub_jwt_secret_key_2024_secure
+  # JWT 密钥（32位+，生产环境请通过环境变量 JWT_SECRET 设置）
+  jwt-secret-key: ${JWT_SECRET:wordclub_jwt_secret_key_2024_secure}
