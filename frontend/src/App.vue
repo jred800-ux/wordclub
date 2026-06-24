@@ -58,8 +58,6 @@ watch(() => authStore.isLoggedIn, (loggedIn) => {
         <router-link to="/library">词库</router-link>
         <router-link to="/summary">学习统计</router-link>
         <router-link to="/settings">设置</router-link>
-        <router-link to="/learn/first-sight">认读模式</router-link>
-        <router-link to="/learn/spelling">拼写模式</router-link>
       </nav>
 
       <div class="header-actions">
