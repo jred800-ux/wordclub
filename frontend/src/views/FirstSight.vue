@@ -1,16 +1,30 @@
 <script setup>
 import { onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useWordStore } from '../stores/word'
 
+const router = useRouter()
 const store = useWordStore()
 const statusMsg = ref('')
+const audioUnlocked = ref(false)
+const showCompletion = ref(false)
+const checkinMsg = ref('')
 
-onMounted(() => {
-  if (!store.words.length) store.fetchWords()
+onMounted(async () => {
+  await store.settingsReady()
+  store.fetchStats()
+  if (!store.words.length) {
+    if (store.selectedBookId) {
+      store.selectBook(store.selectedBookId)
+    } else {
+      store.fetchWords()
+    }
+  }
 })
 
 function handleMastered() {
   if (!store.currentWord) return
+  audioUnlocked.value = true
   store.markMastered(store.currentWord)
   statusMsg.value = '已存入掌握列表'
   setTimeout(() => (statusMsg.value = ''), 2000)
@@ -18,6 +32,7 @@ function handleMastered() {
 
 function handleFuzzy() {
   if (!store.currentWord) return
+  audioUnlocked.value = true
   store.markFuzzy(store.currentWord)
   statusMsg.value = '已标记为模糊'
   setTimeout(() => (statusMsg.value = ''), 2000)
@@ -25,12 +40,14 @@ function handleFuzzy() {
 
 function handleUnknown() {
   if (!store.currentWord) return
+  audioUnlocked.value = true
   store.markUnknown(store.currentWord)
   statusMsg.value = '已标记为不认识'
   setTimeout(() => (statusMsg.value = ''), 2000)
 }
 
 function playAudio() {
+  audioUnlocked.value = true
   const word = store.currentWord?.spelling
   if (word && window.speechSynthesis) {
     const u = new SpeechSynthesisUtterance(word)
@@ -40,24 +57,82 @@ function playAudio() {
   }
 }
 
-// Auto-play pronunciation when word changes
-watch(() => store.currentWord, () => {
-  if (store.currentWord) {
-    setTimeout(() => playAudio(), 300)
+// Auto-play only after first user interaction (avoids Chrome speechSynthesis blocking)
+watch(() => store.currentWord, (newWord) => {
+  if (newWord && audioUnlocked.value) playAudio()
+})
+
+// Show completion banner when daily goal reached and auto-redirect
+watch(() => store.dailyGoalReached, (reached) => {
+  if (reached) {
+    showCompletion.value = true
+    if (!store.checkedInToday) {
+      // Auto-redirect to study summary after a short delay so user sees the completion
+      setTimeout(() => router.push('/summary'), 1200)
+    } else {
+      setTimeout(() => router.push('/summary'), 1200)
+    }
   }
 })
+
+async function handleCheckin() {
+  try {
+    const result = await store.doCheckin()
+    checkinMsg.value = `已连续打卡 ${result.streak} 天!`
+  } catch (e) {
+    checkinMsg.value = e.response?.data?.message || '打卡失败'
+  }
+}
+
+async function handleTrash() {
+  if (!store.currentWord) return
+  audioUnlocked.value = true
+  await store.addToBlacklist(store.currentWord.id)
+  statusMsg.value = '已扔进垃圾桶'
+  setTimeout(() => {
+    statusMsg.value = ''
+    store.nextWord()
+  }, 800)
+}
 </script>
 
 <template>
-  <div class="first-sight" v-if="store.currentWord">
-    <!-- Progress -->
-    <div class="progress-section">
-      <div class="progress-label">
-        学习进度
-        <strong>{{ store.progress }} / {{ store.totalWords }}</strong>
+  <div class="first-sight" :class="{ 'large-font': store.largeFont }" v-if="store.currentWord">
+    <!-- Daily Goal -->
+    <div class="daily-goal-bar">
+      <div class="daily-goal-header">
+        <span>今日目标</span>
+        <strong>{{ store.todayNewCount + store.todayReviewCount }} / {{ store.dailyGoal }}</strong>
       </div>
-      <div class="progress-bar">
-        <div class="progress-fill" :style="{ width: store.progressPercent + '%' }"></div>
+      <div class="daily-goal-track">
+        <div class="dg-fill-new" :style="{ width: (Math.min(store.todayNewCount, store.newWordCount) / Math.max(store.dailyGoal, 1) * 100) + '%' }"></div>
+        <div class="dg-fill-review" :style="{ width: (store.todayReviewCount / Math.max(store.dailyGoal, 1) * 100) + '%' }"></div>
+      </div>
+      <div class="daily-goal-legend">
+        <span class="legend-new"><span class="dot"></span>新词 {{ store.todayNewCount }} / {{ store.newWordCount }}</span>
+        <span class="legend-review"><span class="dot"></span>复习 {{ store.todayReviewCount }} / {{ store.effectiveReviewTarget }}</span>
+      </div>
+    </div>
+
+    <!-- Completion Banner -->
+    <div v-if="showCompletion" class="completion-banner">
+      <div class="completion-content">
+        <span class="material-icons celebration-icon">emoji_events</span>
+        <h3>今日目标达成!</h3>
+        <p>你已经学完了今日计划的 {{ store.dailyGoal }} 个单词</p>
+        <button
+          v-if="!store.checkedInToday"
+          class="checkin-btn"
+          @click="handleCheckin"
+          :disabled="!!checkinMsg"
+        >
+          <span class="material-icons">how_to_reg</span>
+          {{ checkinMsg || '打卡记录' }}
+        </button>
+        <p v-else class="already-checkedin">
+          <span class="material-icons">check_circle</span> 今日已打卡 · 连续 {{ store.streakDays }} 天
+        </p>
+        <button class="text-btn" @click="showCompletion = false">继续学习</button>
       </div>
     </div>
 
@@ -97,6 +172,10 @@ watch(() => store.currentWord, () => {
         <span class="material-icons">check</span>
         <span class="action-label">认识</span>
       </button>
+      <button class="action-btn trash" @click="handleTrash">
+        <span class="material-icons">delete_outline</span>
+        <span class="action-label">太简单</span>
+      </button>
     </div>
 
     <!-- Status Banner -->
@@ -123,30 +202,57 @@ watch(() => store.currentWord, () => {
   padding: 32px 20px;
 }
 
-/* Progress */
-.progress-section {
-  margin-bottom: 32px;
+/* Daily Goal */
+.daily-goal-bar {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: 14px 18px;
+  margin-bottom: 20px;
 }
-.progress-label {
-  font-size: 14px;
+.daily-goal-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
   color: var(--color-text-secondary);
   margin-bottom: 8px;
 }
-.progress-label strong {
+.daily-goal-header strong {
   color: var(--color-text-primary);
 }
-.progress-bar {
+.daily-goal-track {
+  display: flex;
   height: 6px;
   background: var(--color-border);
   border-radius: var(--radius-full);
   overflow: hidden;
+  margin-bottom: 8px;
 }
-.progress-fill {
+.dg-fill-new {
   height: 100%;
   background: var(--color-primary);
-  border-radius: var(--radius-full);
   transition: width 0.4s ease;
 }
+.dg-fill-review {
+  height: 100%;
+  background: var(--color-warning);
+  transition: width 0.4s ease;
+}
+.daily-goal-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.legend-new .dot, .legend-review .dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.legend-new .dot { background: var(--color-primary); }
+.legend-review .dot { background: var(--color-warning); }
 
 /* Word Card */
 .word-card {
@@ -249,6 +355,61 @@ watch(() => store.currentWord, () => {
   border-color: var(--color-success);
   background: var(--color-success-light);
   color: var(--color-success);
+}
+.action-btn.trash:hover {
+  border-color: #9ca3af;
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Completion Banner */
+.completion-banner {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1px solid #fcd34d;
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+.completion-content h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #92400e;
+  margin: 8px 0 4px;
+}
+.completion-content p {
+  font-size: 13px;
+  color: #a16207;
+  margin-bottom: 16px;
+}
+.celebration-icon {
+  font-size: 40px;
+  color: #f59e0b;
+}
+.checkin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 28px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+.checkin-btn:disabled { opacity: 0.7; cursor: default; }
+.already-checkedin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #059669;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
 }
 
 /* Status Banner */
