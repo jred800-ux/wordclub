@@ -51,6 +51,7 @@ public class LearningController {
         stats.put("streakDays", checkinStats.get("streakDays"));
         stats.put("totalCheckins", checkinStats.get("totalCheckins"));
         stats.put("checkedInToday", checkinStats.get("checkedInToday"));
+        stats.put("favoriteCount", vocabularyService.countFavorites(userId));
         return Result.ok(stats);
     }
 
@@ -63,9 +64,10 @@ public class LearningController {
     }
 
     @GetMapping("/progress/book/{bookId}")
-    public Result<Map<String, Object>> bookProgress(@PathVariable Long bookId) {
+    public Result<Map<String, Object>> bookProgress(@PathVariable Long bookId,
+                                                     @RequestParam(defaultValue = "50") int dailyNewWordCount) {
         long userId = StpUtil.getLoginIdAsLong();
-        return Result.ok(vocabularyService.getBookProgress(userId, bookId));
+        return Result.ok(vocabularyService.getBookProgress(userId, bookId, dailyNewWordCount));
     }
 
     @GetMapping("/favorites")
@@ -92,6 +94,12 @@ public class LearningController {
     public Result<Boolean> checkFavorite(@PathVariable Long wordId) {
         long userId = StpUtil.getLoginIdAsLong();
         return Result.ok(vocabularyService.isFavorited(userId, wordId));
+    }
+
+    @GetMapping("/favorites/words")
+    public Result<List<Map<String, Object>>> favoriteWords() {
+        long userId = StpUtil.getLoginIdAsLong();
+        return Result.ok(vocabularyService.getFavoriteWords(userId));
     }
 
     // --- Check-in ---

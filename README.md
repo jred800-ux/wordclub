@@ -34,7 +34,7 @@ wordclub/
 │       ├── components/      # SearchModal (搜索弹窗)
 │       ├── router/          # Vue Router + 登录守卫
 │       ├── stores/          # Pinia (auth.js + word.js)
-│       └── views/           # 11 个页面（含设置页 + 管理员面板）
+│       └── views/           # 12 个页面（含设置页 + 管理员面板 + 生词本）
 ├── android/                 # Android 原生 App (Jetpack Compose)
 ├── docs/                    # 功能需求文档
 └── pom.xml                  # Maven
@@ -106,7 +106,8 @@ mysql -u root -p123123 wordclub < data/init-user-tables.sql
 | GET | `/stats` | 需 | 今日统计 (todayLearned/todayNewCount/todayReviewCount/mastered/reviewing/streakDays/totalCheckins/checkedInToday) |
 | GET | `/queue` | 需 | 待复习队列 |
 | GET | `/progress/book/{id}` | 需 | 词书学习进度（恢复位置） |
-| GET | `/favorites` | 需 | 收藏列表 |
+| GET | `/favorites` | 需 | 收藏ID列表 |
+| GET | `/favorites/words` | 需 | 收藏单词详情列表 |
 | POST | `/favorites/{wordId}` | 需 | 添加收藏 |
 | DELETE | `/favorites/{wordId}` | 需 | 取消收藏 |
 | POST | `/checkin` | 需 | 每日打卡 |
@@ -192,7 +193,7 @@ cd android && ./gradlew installDebug
 ## 项目状态
 
 - ✅ 后端骨架 + 认证系统 + 安全防护
-- ✅ Web 前端 11 页 + Android App 8 页
+- ✅ Web 前端 12 页 + Android App 8 页
 - ✅ 10 万单词语料库 + JPA 实体映射
 - ✅ 词书选择 + 分页/搜索 API（英文+中文）
 - ✅ 词书点击查看单词列表（/book/:id）
@@ -218,6 +219,9 @@ cd android && ./gradlew installDebug
 - ✅ 回收桶 — 学习时可丢弃太简单的单词，永久不出现在背诵列表
 - ✅ 垃圾桶管理 — 设置页可查看已丢弃单词并恢复
 - ✅ Material Icons 本地化（国内可用）
+- ✅ 首页重新设计 — 左中右卡片布局（书封/书名/进度/打卡状态/工具区）
+- ✅ 生词本 — 独立页面，收藏单词列表/发音/移除，导航栏入口
+- ✅ 再来一组 — 打卡后可跳过签到流程直接继续学习
 - ✅ 代码审查优化 — 修复 Set 响应式 Bug、抽取共享组件、N+1 查询优化、统一异常处理、登录限流
 - ✅ 安全加固 — 加密凭据外置化、SecureRandom 验证码、原子化限流计数
 - ✅ 共享组件 — CompletionBanner / DailyGoalBar / useSpeech composable

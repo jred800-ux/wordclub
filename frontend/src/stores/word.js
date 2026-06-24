@@ -41,8 +41,14 @@ export const useWordStore = defineStore('word', () => {
   const checkedInToday = ref(false)
   const totalCheckins = ref(0)
 
+  // Favorites count
+  const favoriteCount = ref(0)
+
   // Blacklist (trash)
   const blacklistedIds = ref(new Set())
+
+  // Whether to skip check-in redirect (used by "再来一组")
+  const skipCheckin = ref(false)
 
   // --- Computed ---
 
@@ -250,6 +256,7 @@ export const useWordStore = defineStore('word', () => {
       streakDays.value = stats.streakDays || 0
       checkedInToday.value = !!stats.checkedInToday
       totalCheckins.value = stats.totalCheckins || 0
+      favoriteCount.value = stats.favoriteCount || 0
     } catch (e) {
       console.error('[WordStore] fetchStats:', e.message)
     }
@@ -314,11 +321,17 @@ export const useWordStore = defineStore('word', () => {
     nextWord()
   }
 
-  function markUnknown(word) {
+  async function markUnknown(word) {
     _setAdd(unknownIds, word.id)
     _setDelete(masteredIds, word.id)
     _setDelete(fuzzyIds, word.id)
     recordReview(word.id, 0)
+    // 不认识 → 自动加入生词本
+    try {
+      await api.post(`/learning/favorites/${word.id}`)
+    } catch (e) {
+      // Already favorited — ignore
+    }
     fetchStats()
     nextWord()
   }
@@ -408,7 +421,7 @@ export const useWordStore = defineStore('word', () => {
     todayLearned, streakDays, masteredCount,
     todayNewCount, todayReviewCount, pendingReviewCount,
     dailyGoalPercent, dailyGoalReached, effectiveReviewTarget,
-    checkedInToday, totalCheckins, blacklistedIds,
+    checkedInToday, totalCheckins, favoriteCount, blacklistedIds,
     currentWord, totalWords, progress, progressPercent,
     fetchBooks, selectBook, fetchWords, fetchWordDetail, fetchStats,
     recordReview, toggleFavorite,
@@ -417,5 +430,6 @@ export const useWordStore = defineStore('word', () => {
     toggleLargeFont, toggleDarkMode, setLearningMode,
     fetchSettings, saveSettings, settingsReady,
     doCheckin, fetchBlacklistedIds, addToBlacklist, removeFromBlacklist,
+    skipCheckin,
   }
 })
