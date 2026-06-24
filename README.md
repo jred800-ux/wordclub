@@ -100,7 +100,7 @@ mysql -u root -p123123 wordclub < data/init-user-tables.sql
 
 ### 学习 `/api/learning`
 | POST | `/review` | 需 | SM-2 复习记录 {wordId, quality} |
-| GET | `/stats` | 需 | 今日统计 |
+| GET | `/stats` | 需 | 今日统计 (todayLearned/todayNewCount/todayReviewCount/mastered/reviewing) |
 | GET | `/queue` | 需 | 待复习队列 |
 | GET | `/progress/book/{id}` | 需 | 词书学习进度（恢复位置） |
 | GET | `/favorites` | 需 | 收藏列表 |
@@ -187,6 +187,11 @@ cd android && ./gradlew installDebug
 - ✅ 学习进度持久化 — 重新登录自动恢复位置
 - ✅ 用户设置持久化 — 每日目标/偏好/考试目标/学习模式存库，换设备不丢
 - ✅ 设置联动学习 — 设置页配置后，控制台「开始学习」直接进入配置的模式+词书
+- ✅ 深色模式 — 全局暗色主题，开关即时切换
+- ✅ 大字体模式 — 单词卡片文字放大，开关即时生效
+- ✅ 卡片顺序 — 随机序/字母序，学习页实时洗牌
+- ✅ 每日目标 UI — 学习页显示新词/复习进度条
+- ✅ 刷新恢复 — 学习中刷新自动回到同一位置
 - ✅ Material Icons 本地化（国内可用）
 - ⬜ Android 端对接新单词 API
 - ⬜ 拼写/选择题测验后端
