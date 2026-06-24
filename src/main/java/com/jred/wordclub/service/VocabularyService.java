@@ -70,13 +70,12 @@ public class VocabularyService {
         if (last.isPresent()) {
             Long lastWordId = last.get().getWordId();
             result.put("lastWordId", lastWordId);
-            List<Vocabulary> allWords = vocabularyRepository.findAllByBookId(bookId);
-            for (int i = 0; i < allWords.size(); i++) {
-                if (allWords.get(i).getId().equals(lastWordId)) {
-                    result.put("resumePage", i / 20);
-                    result.put("resumeIndex", i % 20);
-                    break;
-                }
+            // Use COUNT query to find position — avoids loading all words into memory
+            long pos = vocabularyRepository.countByBookIdUpToWordId(bookId, lastWordId);
+            if (pos > 0) {
+                int zeroIndexed = (int) (pos - 1);
+                result.put("resumePage", zeroIndexed / 20);
+                result.put("resumeIndex", zeroIndexed % 20);
             }
         }
         return result;

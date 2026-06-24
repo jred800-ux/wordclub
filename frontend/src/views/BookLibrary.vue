@@ -1,10 +1,12 @@
 <script setup>
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWordStore } from '../stores/word'
 
 const router = useRouter()
 const store = useWordStore()
+const loading = ref(true)
+const errorMsg = ref('')
 
 const gradients = [
   'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -16,8 +18,15 @@ const gradients = [
 ]
 const icons = ['school', 'menu_book', 'auto_stories', 'flight_takeoff', 'translate', 'psychology']
 
-onMounted(() => {
-  store.fetchBooks()
+onMounted(async () => {
+  try {
+    await store.fetchBooks()
+    errorMsg.value = store.books.length ? '' : '暂无可用词书，请联系管理员'
+  } catch (e) {
+    errorMsg.value = '加载词库失败，请刷新重试'
+  } finally {
+    loading.value = false
+  }
 })
 
 function selectBook(book) {
@@ -34,7 +43,13 @@ function selectBook(book) {
           <p>选择一套课程，开启你的语言沉浸式学习之旅。</p>
         </div>
 
-        <div class="course-grid">
+        <div v-if="loading" class="loading-state">
+          <div class="loading-spinner"></div>
+          <p>加载中...</p>
+        </div>
+        <div v-else-if="errorMsg" class="error-state">{{ errorMsg }}</div>
+        <div v-else-if="!store.books.length" class="empty-state">暂无可用词书</div>
+        <div v-else class="course-grid">
           <button
             v-for="(book, idx) in store.books"
             :key="book.id"
@@ -146,6 +161,22 @@ function selectBook(book) {
   font-size: 12px;
   color: var(--color-text-secondary);
 }
+
+.loading-state, .error-state, .empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+.loading-spinner {
+  width: 36px; height: 36px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 640px) {
   .book-library { padding: 20px 12px; }

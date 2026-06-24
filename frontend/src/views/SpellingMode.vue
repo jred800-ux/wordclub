@@ -2,18 +2,20 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWordStore } from '../stores/word'
+import { useSpeech } from '../composables/useSpeech'
+import CompletionBanner from '../components/CompletionBanner.vue'
+import DailyGoalBar from '../components/DailyGoalBar.vue'
 
 const router = useRouter()
 const store = useWordStore()
+const { unlocked: audioUnlocked, unlock, playWord } = useSpeech()
 const letterSlots = ref([])
 const activeIndex = ref(0)
 const showHint = ref(false)
 const submitted = ref(false)
 const isCorrect = ref(false)
 const shakeKey = ref(0)
-const audioUnlocked = ref(false)
 const showCompletion = ref(false)
-const checkinMsg = ref('')
 
 onMounted(async () => {
   await store.settingsReady()
@@ -38,7 +40,6 @@ const word = computed(() => store.currentWord)
 function setupSlots() {
   if (!word.value) return
   const len = word.value.spelling.length
-  // For words with <= 2 letters, prefill only the first letter so user can type at least one
   const minEditable = 1
   const prefillCount = len <= 2 ? Math.max(0, len - minEditable) : 2
   letterSlots.value = Array.from({ length: len }, (_, i) => {
@@ -55,11 +56,8 @@ function setupSlots() {
 }
 
 function onKeydown(e) {
-  // After submission, D key goes to next word
   if (submitted.value) {
-    if (e.key === 'd' || e.key === 'D') {
-      nextWord()
-    }
+    if (e.key === 'd' || e.key === 'D') nextWord()
     return
   }
   if (e.key === 'Enter') { submitWord(); return }
@@ -72,7 +70,6 @@ function onKeydown(e) {
     activeIndex.value = findNextEmpty(idx + 1)
   }
   if (e.key === 'Backspace') {
-    // If all slots are full (activeIndex is -1), delete the last editable slot
     if (activeIndex.value === -1) {
       const lastEditable = findLastEditable()
       if (lastEditable !== -1) {
@@ -134,29 +131,25 @@ function submitWord() {
 }
 
 function nextWord() {
-  audioUnlocked.value = true
+  unlock()
   store.nextWord()
   nextTick(setupSlots)
 }
 
 function skipWord() {
-  audioUnlocked.value = true
+  unlock()
   store.skipWord()
   nextTick(setupSlots)
 }
 
-function playAudio() {
-  audioUnlocked.value = true
-  if (!word.value || !window.speechSynthesis) return
-  const u = new SpeechSynthesisUtterance(word.value.spelling)
-  u.lang = 'en-US'
-  u.rate = 0.8
-  speechSynthesis.speak(u)
+function handlePlayAudio() {
+  unlock()
+  playWord(word.value)
 }
 
-// Auto-play only after first user interaction (avoids Chrome speechSynthesis blocking)
+// Auto-play only after first user interaction
 watch(word, (newWord) => {
-  if (newWord && audioUnlocked.value) playAudio()
+  if (newWord && audioUnlocked.value) playWord(newWord)
 })
 
 // Show completion banner when daily goal reached and auto-redirect
@@ -167,19 +160,10 @@ watch(() => store.dailyGoalReached, (reached) => {
   }
 })
 
-async function handleCheckin() {
-  try {
-    const result = await store.doCheckin()
-    checkinMsg.value = `已连续打卡 ${result.streak} 天!`
-  } catch (e) {
-    checkinMsg.value = e.response?.data?.message || '打卡失败'
-  }
-}
-
 async function handleTrash() {
   if (!word.value || submitted.value) return
   await store.addToBlacklist(word.value.id)
-  audioUnlocked.value = true
+  unlock()
   store.nextWord()
   nextTick(setupSlots)
 }
@@ -187,43 +171,11 @@ async function handleTrash() {
 
 <template>
   <div class="spelling-mode" :class="{ 'large-font': store.largeFont }" v-if="word">
-    <!-- Completion Banner -->
-    <div v-if="showCompletion" class="completion-banner">
-      <div class="completion-content">
-        <span class="material-icons celebration-icon">emoji_events</span>
-        <h3>今日目标达成!</h3>
-        <p>你已经学完了今日计划的 {{ store.dailyGoal }} 个单词</p>
-        <button
-          v-if="!store.checkedInToday"
-          class="checkin-btn"
-          @click="handleCheckin"
-          :disabled="!!checkinMsg"
-        >
-          <span class="material-icons">how_to_reg</span>
-          {{ checkinMsg || '打卡记录' }}
-        </button>
-        <p v-else class="already-checkedin">
-          <span class="material-icons">check_circle</span> 今日已打卡 · 连续 {{ store.streakDays }} 天
-        </p>
-        <button class="text-btn" @click="showCompletion = false">继续学习</button>
-      </div>
-    </div>
-
     <!-- Daily Goal -->
-    <div class="daily-goal-bar">
-      <div class="daily-goal-header">
-        <span>今日目标</span>
-        <strong>{{ store.todayNewCount + store.todayReviewCount }} / {{ store.dailyGoal }}</strong>
-      </div>
-      <div class="daily-goal-track">
-        <div class="dg-fill-new" :style="{ width: (Math.min(store.todayNewCount, store.newWordCount) / Math.max(store.dailyGoal, 1) * 100) + '%' }"></div>
-        <div class="dg-fill-review" :style="{ width: (store.todayReviewCount / Math.max(store.dailyGoal, 1) * 100) + '%' }"></div>
-      </div>
-      <div class="daily-goal-legend">
-        <span class="legend-new"><span class="dot"></span>新词 {{ store.todayNewCount }} / {{ store.newWordCount }}</span>
-        <span class="legend-review"><span class="dot"></span>复习 {{ store.todayReviewCount }} / {{ store.effectiveReviewTarget }}</span>
-      </div>
-    </div>
+    <DailyGoalBar />
+
+    <!-- Completion Banner -->
+    <CompletionBanner :show="showCompletion" @close="showCompletion = false" />
 
     <!-- Word Info -->
     <div class="spelling-card">
@@ -236,7 +188,7 @@ async function handleTrash() {
       <!-- Pronunciation -->
       <div class="phonetic-row">
         <span class="phonetic-text">{{ word.phonetic || `/${word.spelling}/` }}</span>
-        <button class="audio-btn" @click="playAudio" title="发音">
+        <button class="audio-btn" @click="handlePlayAudio" title="发音" aria-label="播放发音">
           <span class="material-icons">volume_up</span>
         </button>
       </div>
@@ -258,6 +210,7 @@ async function handleTrash() {
           ]"
           @click="setActive(idx)"
           :disabled="slot.prefill || submitted"
+          :aria-label="`字母 ${idx + 1}：${slot.letter || '空'}`"
         >
           {{ slot.letter || '_' }}
         </button>
@@ -265,10 +218,10 @@ async function handleTrash() {
 
       <!-- Result -->
       <div v-if="submitted" class="result-row">
-        <div v-if="isCorrect" class="result-msg success">
+        <div v-if="isCorrect" class="result-msg success" role="status">
           <span class="material-icons">check_circle</span> 正确！
         </div>
-        <div v-else class="result-msg error">
+        <div v-else class="result-msg error" role="status">
           <span class="material-icons">cancel</span>
           正确答案：<strong>{{ word.spelling }}</strong>
         </div>
@@ -319,40 +272,6 @@ async function handleTrash() {
   padding: 32px 20px;
 }
 
-/* Daily Goal */
-.daily-goal-bar {
-  background: var(--color-surface);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-card);
-  padding: 14px 18px;
-  margin-bottom: 20px;
-}
-.daily-goal-header {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  margin-bottom: 8px;
-}
-.daily-goal-header strong { color: var(--color-text-primary); }
-.daily-goal-track {
-  display: flex;
-  height: 6px;
-  background: var(--color-border);
-  border-radius: var(--radius-full);
-  overflow: hidden;
-  margin-bottom: 8px;
-}
-.dg-fill-new { height: 100%; background: var(--color-primary); transition: width 0.4s ease; }
-.dg-fill-review { height: 100%; background: var(--color-warning); transition: width 0.4s ease; }
-.daily-goal-legend { display: flex; gap: 16px; font-size: 12px; color: var(--color-text-muted); }
-.legend-new .dot, .legend-review .dot {
-  display: inline-block; width: 8px; height: 8px;
-  border-radius: 50%; margin-right: 4px; vertical-align: middle;
-}
-.legend-new .dot { background: var(--color-primary); }
-.legend-review .dot { background: var(--color-warning); }
-
 /* Card */
 .spelling-card {
   background: var(--color-surface);
@@ -399,6 +318,7 @@ async function handleTrash() {
   background: var(--color-primary-light);
   color: var(--color-primary);
   border-radius: var(--radius-full);
+  cursor: pointer;
 }
 
 /* Letter Slots */
@@ -464,6 +384,7 @@ async function handleTrash() {
   font-size: 14px;
   font-weight: 500;
   border-radius: var(--radius-sm);
+  cursor: pointer;
   transition: background 0.15s;
 }
 .text-btn:hover:not(:disabled) { background: var(--color-warning-light); }
@@ -487,6 +408,7 @@ async function handleTrash() {
   font-size: 15px;
   font-weight: 600;
   border-radius: var(--radius-md);
+  cursor: pointer;
   transition: background 0.15s, opacity 0.15s;
 }
 .btn-primary:hover:not(:disabled) { background: var(--color-primary-dark); }
@@ -506,60 +428,11 @@ async function handleTrash() {
   color: var(--color-text-muted);
   font-size: 13px;
   border-radius: var(--radius-sm);
+  cursor: pointer;
   transition: background 0.15s;
 }
 .btn-ghost:hover:not(:disabled) { background: var(--color-divider); }
 .trash-btn { color: #9ca3af; }
-
-/* Completion Banner */
-.completion-banner {
-  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-  border: 1px solid #fcd34d;
-  border-radius: var(--radius-lg);
-  padding: 24px;
-  text-align: center;
-  margin-bottom: 20px;
-}
-.completion-content h3 {
-  font-size: 20px;
-  font-weight: 700;
-  color: #92400e;
-  margin: 8px 0 4px;
-}
-.completion-content p {
-  font-size: 13px;
-  color: #a16207;
-  margin-bottom: 16px;
-}
-.celebration-icon {
-  font-size: 40px;
-  color: #f59e0b;
-}
-.checkin-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 28px;
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  color: #fff;
-  font-size: 15px;
-  font-weight: 600;
-  border: none;
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  margin-bottom: 8px;
-}
-.checkin-btn:disabled { opacity: 0.7; cursor: default; }
-.already-checkedin {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  color: #059669;
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: 8px;
-}
 
 /* Empty */
 .empty-state { text-align: center; padding: 80px 20px; color: var(--color-text-muted); }

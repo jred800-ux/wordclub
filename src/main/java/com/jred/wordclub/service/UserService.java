@@ -1,6 +1,8 @@
 package com.jred.wordclub.service;
 
 import com.jred.wordclub.entity.User;
+import com.jred.wordclub.exception.BusinessException;
+import com.jred.wordclub.exception.NotFoundException;
 import com.jred.wordclub.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -22,15 +24,15 @@ public class UserService {
     private final UserSettingRepository userSettingRepository;
     private final UserCheckinRepository checkinRepository;
     private final UserWordBlacklistRepository blacklistRepository;
-    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final BCryptPasswordEncoder passwordEncoder;
 
     @Transactional
     public User register(String username, String email, String rawPassword) {
         if (userRepository.existsByUsername(username)) {
-            throw new RuntimeException("用户名已存在");
+            throw new BusinessException("用户名已存在");
         }
         if (userRepository.existsByEmail(email)) {
-            throw new RuntimeException("邮箱已被注册");
+            throw new BusinessException("邮箱已被注册");
         }
         User user = new User();
         user.setUsername(username);
@@ -42,17 +44,17 @@ public class UserService {
 
     public User findByUsername(String username) {
         return userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("用户不存在"));
+                .orElseThrow(() -> new NotFoundException("用户不存在"));
     }
 
     public User findByEmail(String email) {
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("邮箱未注册"));
+                .orElseThrow(() -> new NotFoundException("邮箱未注册"));
     }
 
     public User findById(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("用户不存在"));
+                .orElseThrow(() -> new NotFoundException("用户不存在"));
     }
 
     public boolean verifyPassword(String rawPassword, String encodedPassword) {
@@ -86,7 +88,7 @@ public class UserService {
     public User toggleUserStatus(Long userId) {
         User user = findById(userId);
         if ("ADMIN".equals(user.getRole())) {
-            throw new RuntimeException("不能禁用管理员账户");
+            throw new BusinessException("不能禁用管理员账户");
         }
         user.setEnabled(!user.getEnabled());
         return userRepository.save(user);
@@ -96,7 +98,7 @@ public class UserService {
     public void deleteUser(Long userId) {
         User user = findById(userId);
         if ("ADMIN".equals(user.getRole())) {
-            throw new RuntimeException("不能删除管理员账户");
+            throw new BusinessException("不能删除管理员账户");
         }
         deleteAccount(userId);
     }

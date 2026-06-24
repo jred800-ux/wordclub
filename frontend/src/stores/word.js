@@ -285,28 +285,39 @@ export const useWordStore = defineStore('word', () => {
 
   // --- Local Learning Actions ---
 
+  // Helper: immutable Set operations that Vue 3 reactivity can track
+  // (Vue 3 ref() does NOT track Set.add()/delete() — must replace the entire ref)
+  function _setAdd(setRef, value) {
+    setRef.value = new Set([...setRef.value, value])
+  }
+  function _setDelete(setRef, value) {
+    const next = new Set(setRef.value)
+    next.delete(value)
+    setRef.value = next
+  }
+
   function markMastered(word) {
-    masteredIds.value.add(word.id)
-    fuzzyIds.value.delete(word.id)
-    unknownIds.value.delete(word.id)
+    _setAdd(masteredIds, word.id)
+    _setDelete(fuzzyIds, word.id)
+    _setDelete(unknownIds, word.id)
     recordReview(word.id, 5)
     fetchStats()
     nextWord()
   }
 
   function markFuzzy(word) {
-    fuzzyIds.value.add(word.id)
-    masteredIds.value.delete(word.id)
-    unknownIds.value.delete(word.id)
+    _setAdd(fuzzyIds, word.id)
+    _setDelete(masteredIds, word.id)
+    _setDelete(unknownIds, word.id)
     recordReview(word.id, 2)
     fetchStats()
     nextWord()
   }
 
   function markUnknown(word) {
-    unknownIds.value.add(word.id)
-    masteredIds.value.delete(word.id)
-    fuzzyIds.value.delete(word.id)
+    _setAdd(unknownIds, word.id)
+    _setDelete(masteredIds, word.id)
+    _setDelete(fuzzyIds, word.id)
     recordReview(word.id, 0)
     fetchStats()
     nextWord()
@@ -355,12 +366,12 @@ export const useWordStore = defineStore('word', () => {
 
   async function addToBlacklist(wordId) {
     await api.post(`/learning/blacklist/${wordId}`)
-    blacklistedIds.value.add(wordId)
+    _setAdd(blacklistedIds, wordId)
   }
 
   async function removeFromBlacklist(wordId) {
     await api.delete(`/learning/blacklist/${wordId}`)
-    blacklistedIds.value.delete(wordId)
+    _setDelete(blacklistedIds, wordId)
   }
 
   function setOrder(order) {

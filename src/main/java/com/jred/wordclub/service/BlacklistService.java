@@ -35,15 +35,24 @@ public class BlacklistService {
 
     public List<Map<String, Object>> listBlacklist(Long userId) {
         List<UserWordBlacklist> items = blacklistRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        if (items.isEmpty()) return Collections.emptyList();
+
+        // Batch-fetch all vocabulary words in one query (avoid N+1)
+        List<Long> wordIds = items.stream().map(UserWordBlacklist::getWordId).collect(Collectors.toList());
+        Map<Long, Vocabulary> vocabMap = vocabularyRepository.findByIdIn(wordIds)
+                .stream()
+                .collect(Collectors.toMap(Vocabulary::getId, v -> v));
+
         return items.stream().map(item -> {
             Map<String, Object> map = new HashMap<>();
             map.put("id", item.getId());
             map.put("wordId", item.getWordId());
             map.put("createdAt", item.getCreatedAt());
-            vocabularyRepository.findById(item.getWordId()).ifPresent(word -> {
+            Vocabulary word = vocabMap.get(item.getWordId());
+            if (word != null) {
                 map.put("spelling", word.getSpelling());
                 map.put("paraphrase", word.getParaphrase());
-            });
+            }
             return map;
         }).collect(Collectors.toList());
     }

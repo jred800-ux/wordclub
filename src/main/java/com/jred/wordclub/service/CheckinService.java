@@ -1,6 +1,7 @@
 package com.jred.wordclub.service;
 
 import com.jred.wordclub.entity.UserCheckin;
+import com.jred.wordclub.exception.BusinessException;
 import com.jred.wordclub.repository.UserCheckinRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,7 +20,7 @@ public class CheckinService {
     public Map<String, Object> checkin(Long userId) {
         LocalDate today = LocalDate.now();
         if (checkinRepository.existsByUserIdAndCheckinDate(userId, today)) {
-            throw new RuntimeException("今天已经打卡过了");
+            throw new BusinessException("今天已经打卡过了");
         }
         UserCheckin checkin = new UserCheckin();
         checkin.setUserId(userId);
@@ -46,15 +47,30 @@ public class CheckinService {
         return stats;
     }
 
+    /**
+     * 计算连续打卡天数。
+     * 一次性取出用户所有打卡日期（倒序），在内存中遍历计算连续天数，
+     * 避免 N 次数据库查询。
+     */
     private int calculateStreak(Long userId) {
         LocalDate today = LocalDate.now();
-        boolean todayChecked = checkinRepository.existsByUserIdAndCheckinDate(userId, today);
-        LocalDate cursor = todayChecked ? today : today.minusDays(1);
+        List<LocalDate> dates = checkinRepository.findByUserIdOrderByCheckinDateDesc(userId)
+                .stream()
+                .map(UserCheckin::getCheckinDate)
+                .collect(java.util.stream.Collectors.toList());
+
+        if (dates.isEmpty()) return 0;
 
         int streak = 0;
-        while (checkinRepository.existsByUserIdAndCheckinDate(userId, cursor)) {
-            streak++;
-            cursor = cursor.minusDays(1);
+        LocalDate expected = today;
+        for (LocalDate d : dates) {
+            if (d.equals(expected)) {
+                streak++;
+                expected = expected.minusDays(1);
+            } else if (d.isBefore(expected)) {
+                break; // gap found, streak ends
+            }
+            // if d > expected, skip duplicate or future date
         }
         return streak;
     }

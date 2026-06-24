@@ -4,9 +4,14 @@ import { useWordStore } from '../stores/word'
 
 const store = useWordStore()
 const checkinMsg = ref('')
+const statsError = ref('')
 
-onMounted(() => {
-  store.fetchStats()
+onMounted(async () => {
+  try {
+    await store.fetchStats()
+  } catch (e) {
+    statsError.value = '加载统计失败'
+  }
 })
 
 async function handleCheckin() {
@@ -23,6 +28,7 @@ async function handleCheckin() {
 
 <template>
   <div class="study-summary">
+    <div v-if="statsError" class="error-banner">{{ statsError }}</div>
     <div class="celebration-card">
       <span class="material-icons celebration-icon">celebration</span>
       <h2>恭喜!</h2>
@@ -71,6 +77,15 @@ async function handleCheckin() {
   max-width: 680px;
   margin: 0 auto;
   padding: 32px 20px;
+}
+.error-banner {
+  text-align: center;
+  padding: 10px 16px;
+  background: var(--color-danger-light);
+  color: #991b1b;
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  font-size: 14px;
 }
 
 .celebration-card {

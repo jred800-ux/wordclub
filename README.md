@@ -12,12 +12,12 @@ wordclub/
 │       │   ├── WordclubApplication.java
 │       │   ├── common/          # 统一响应 Result<T>
 │       │   ├── config/          # Sa-Token 路由拦截
-│       │   ├── controller/      # 6 个 Controller (Auth/Admin/Vocabulary/Learning/Book/Word)
+│       │   ├── controller/      # 6 个 Controller (Auth/Admin/Vocabulary/Learning/Book/Word[遗留])
 │       │   ├── dto/             # Request/Response DTO
 │       │   ├── entity/          # 11 个实体 (User/Word/Vocabulary/Book/VocBook/
 │       │   │                    #   VocExample/UserWordProgress/UserFavorite/UserSetting/
 │       │   │                    #   UserCheckin/UserWordBlacklist)
-│       │   ├── exception/       # GlobalExceptionHandler + RateLimitException
+│       │   ├── exception/       # GlobalExceptionHandler + 4 种异常类型
 │       │   ├── repository/      # 11 个 JPA Repository
 │       │   └── service/         # 8 个 Service (含 SM-2/打卡/回收桶)
 │       └── resources/
@@ -218,6 +218,9 @@ cd android && ./gradlew installDebug
 - ✅ 回收桶 — 学习时可丢弃太简单的单词，永久不出现在背诵列表
 - ✅ 垃圾桶管理 — 设置页可查看已丢弃单词并恢复
 - ✅ Material Icons 本地化（国内可用）
+- ✅ 代码审查优化 — 修复 Set 响应式 Bug、抽取共享组件、N+1 查询优化、统一异常处理、登录限流
+- ✅ 安全加固 — 加密凭据外置化、SecureRandom 验证码、原子化限流计数
+- ✅ 共享组件 — CompletionBanner / DailyGoalBar / useSpeech composable
 - ⬜ Android 端对接新单词 API
 - ⬜ 拼写/选择题测验后端
 - ⬜ 学习日历热力图持久化
