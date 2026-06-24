@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS `user_settings` (
     `card_order` VARCHAR(20) DEFAULT 'random',
     `large_font` TINYINT(1) DEFAULT 0,
     `dark_mode` TINYINT(1) DEFAULT 0,
+    `learning_mode` VARCHAR(20) DEFAULT 'first-sight',
     `exam_date` VARCHAR(20) DEFAULT '',
     `selected_book_id` BIGINT DEFAULT NULL,
     `created_at` DATETIME(6) DEFAULT NULL,

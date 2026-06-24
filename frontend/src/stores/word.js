@@ -29,6 +29,7 @@ export const useWordStore = defineStore('word', () => {
   const newWordCount = ref(50)
   const reviewRatio = ref(1) // 1=1:1, 2=1:2, ..., 5=1:5
   const examDate = ref('')
+  const learningMode = ref('first-sight') // 'first-sight' | 'spelling'
 
   // Stats (from API)
   const todayLearned = ref(0)
@@ -90,6 +91,7 @@ export const useWordStore = defineStore('word', () => {
         cardOrder.value = s.cardOrder ?? 'random'
         largeFont.value = s.largeFont ?? false
         darkMode.value = s.darkMode ?? false
+        learningMode.value = s.learningMode ?? 'first-sight'
         examDate.value = s.examDate ?? ''
         if (s.selectedBookId) {
           selectedBookId.value = s.selectedBookId
@@ -115,6 +117,7 @@ export const useWordStore = defineStore('word', () => {
           cardOrder: cardOrder.value,
           largeFont: largeFont.value,
           darkMode: darkMode.value,
+          learningMode: learningMode.value,
           examDate: examDate.value,
           selectedBookId: selectedBookId.value,
         })
@@ -126,7 +129,7 @@ export const useWordStore = defineStore('word', () => {
 
   // Auto-save when any setting changes
   watch(
-    [newWordCount, reviewRatio, cardOrder, largeFont, darkMode, examDate, selectedBookId],
+    [newWordCount, reviewRatio, cardOrder, largeFont, darkMode, learningMode, examDate, selectedBookId],
     () => saveSettings()
   )
 
@@ -283,6 +286,10 @@ export const useWordStore = defineStore('word', () => {
     darkMode.value = !darkMode.value
   }
 
+  function setLearningMode(mode) {
+    learningMode.value = mode
+  }
+
   // --- Helpers ---
 
   function extractPos(paraphrase) {
@@ -296,7 +303,7 @@ export const useWordStore = defineStore('word', () => {
     books, selectedBookId, selectedBook,
     currentPage, totalPages, totalElements,
     masteredIds, fuzzyIds, unknownIds,
-    cardOrder, largeFont, darkMode, dailyGoal, reviewWordCount,
+    cardOrder, largeFont, darkMode, learningMode, dailyGoal, reviewWordCount,
     newWordCount, reviewRatio, examDate, bookProgress,
     todayLearned, todayMinutes, streakDays, masteredCount,
     currentWord, totalWords, progress, progressPercent,
@@ -304,7 +311,7 @@ export const useWordStore = defineStore('word', () => {
     recordReview, toggleFavorite,
     markMastered, markFuzzy, markUnknown,
     skipWord, nextWord, setOrder,
-    toggleLargeFont, toggleDarkMode,
+    toggleLargeFont, toggleDarkMode, setLearningMode,
     fetchSettings, saveSettings,
   }
 })

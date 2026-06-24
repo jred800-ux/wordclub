@@ -6,7 +6,13 @@ const store = useWordStore()
 const statusMsg = ref('')
 
 onMounted(() => {
-  if (!store.words.length) store.fetchWords()
+  if (!store.words.length) {
+    if (store.selectedBookId) {
+      store.selectBook(store.selectedBookId)
+    } else {
+      store.fetchWords()
+    }
+  }
 })
 
 function handleMastered() {
