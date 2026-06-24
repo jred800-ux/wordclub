@@ -31,6 +31,9 @@ public class User {
     @Column(nullable = false)
     private Boolean enabled = true;
 
+    @Column(length = 20)
+    private String role = "USER";
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
