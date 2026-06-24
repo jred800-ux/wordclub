@@ -12,13 +12,14 @@ wordclub/
 │       │   ├── WordclubApplication.java
 │       │   ├── common/          # 统一响应 Result<T>
 │       │   ├── config/          # Sa-Token 路由拦截
-│       │   ├── controller/      # 5 个 Controller (Auth/Word/Book/Vocabulary/Learning)
+│       │   ├── controller/      # 6 个 Controller (Auth/Admin/Vocabulary/Learning/Book/Word)
 │       │   ├── dto/             # Request/Response DTO
-│       │   ├── entity/          # 8 个实体 (User/Word/Vocabulary/Book/VocBook/
-│       │   │                    #   VocExample/UserWordProgress/UserFavorite)
+│       │   ├── entity/          # 11 个实体 (User/Word/Vocabulary/Book/VocBook/
+│       │   │                    #   VocExample/UserWordProgress/UserFavorite/UserSetting/
+│       │   │                    #   UserCheckin/UserWordBlacklist)
 │       │   ├── exception/       # GlobalExceptionHandler + RateLimitException
-│       │   ├── repository/      # 7 个 JPA Repository
-│       │   └── service/         # 5 个 Service (含 SM-2 算法)
+│       │   ├── repository/      # 11 个 JPA Repository
+│       │   └── service/         # 8 个 Service (含 SM-2/打卡/回收桶)
 │       └── resources/
 │           └── application.yaml
 ├── data/                    # 词汇语料库 SQL/JSON (~110MB, gitignore)
@@ -33,7 +34,7 @@ wordclub/
 │       ├── components/      # SearchModal (搜索弹窗)
 │       ├── router/          # Vue Router + 登录守卫
 │       ├── stores/          # Pinia (auth.js + word.js)
-│       └── views/           # 10 个页面（含设置页 Settings）
+│       └── views/           # 11 个页面（含设置页 + 管理员面板）
 ├── android/                 # Android 原生 App (Jetpack Compose)
 ├── docs/                    # 功能需求文档
 └── pom.xml                  # Maven
@@ -55,7 +56,7 @@ wordclub/
 
 ## 数据库
 
-MySQL `wordclub` 库，7 张表：
+MySQL `wordclub` 库，8 张表：
 
 | 表 | 行数 | 说明 |
 |---|---|---|
@@ -66,6 +67,9 @@ MySQL `wordclub` 库，7 张表：
 | `users` | — | 用户表 |
 | `user_word_progress` | — | SM-2 学习进度 (需手动建表) |
 | `user_favorites` | — | 用户收藏 (需手动建表) |
+| `user_settings` | — | 用户学习设置 (需手动建表) |
+| `user_checkins` | — | 每日打卡记录 (需手动建表) |
+| `user_word_blacklist` | — | 单词回收桶 (需手动建表) |
 
 **导入语料库**（仅首次，SQL 在 `data/` 目录）：
 ```bash
@@ -99,12 +103,28 @@ mysql -u root -p123123 wordclub < data/init-user-tables.sql
 
 ### 学习 `/api/learning`
 | POST | `/review` | 需 | SM-2 复习记录 {wordId, quality} |
-| GET | `/stats` | 需 | 今日统计 |
+| GET | `/stats` | 需 | 今日统计 (todayLearned/todayNewCount/todayReviewCount/pendingReviewCount/mastered/reviewing/streakDays/totalCheckins/checkedInToday) |
 | GET | `/queue` | 需 | 待复习队列 |
 | GET | `/progress/book/{id}` | 需 | 词书学习进度（恢复位置） |
 | GET | `/favorites` | 需 | 收藏列表 |
 | POST | `/favorites/{wordId}` | 需 | 添加收藏 |
 | DELETE | `/favorites/{wordId}` | 需 | 取消收藏 |
+| POST | `/checkin` | 需 | 每日打卡 |
+| GET | `/checkin/stats` | 需 | 打卡统计（连续天数/累计次数） |
+| POST | `/blacklist/{wordId}` | 需 | 单词扔进垃圾桶 |
+| DELETE | `/blacklist/{wordId}` | 需 | 从垃圾桶恢复单词 |
+| GET | `/blacklist` | 需 | 垃圾桶列表 |
+| GET | `/settings` | 需 | 获取用户学习设置 |
+| PUT | `/settings` | 需 | 保存用户学习设置 |
+
+### 管理员 `/api/admin`
+| GET | `/users` | ADMIN | 用户列表（分页+搜索） |
+| GET | `/users/{id}` | ADMIN | 用户详情（含设置/学习统计/打卡记录） |
+| PUT | `/users/{id}/status` | ADMIN | 启用/禁用用户 |
+| DELETE | `/users/{id}` | ADMIN | 删除用户 |
+
+### 认证 `/api/auth`
+| DELETE | `/account` | 需 | 注销账号（需密码验证） |
 
 **认证**：Sa-Token JWT + Redis。`/api/auth/**` 放行，其余 `/api/**` 需 `Bearer` token。
 
@@ -172,7 +192,7 @@ cd android && ./gradlew installDebug
 ## 项目状态
 
 - ✅ 后端骨架 + 认证系统 + 安全防护
-- ✅ Web 前端 10 页 + Android App 8 页
+- ✅ Web 前端 11 页 + Android App 8 页
 - ✅ 10 万单词语料库 + JPA 实体映射
 - ✅ 词书选择 + 分页/搜索 API（英文+中文）
 - ✅ 词书点击查看单词列表（/book/:id）
@@ -182,6 +202,21 @@ cd android && ./gradlew installDebug
 - ✅ 独立设置页（/settings）— 词书 + 每日目标（新词/复习比例）+ 偏好
 - ✅ 单词学习自动播放发音
 - ✅ 学习进度持久化 — 重新登录自动恢复位置
+- ✅ 用户设置持久化 — 每日目标/偏好/考试目标/学习模式存库，换设备不丢
+- ✅ 设置联动学习 — 设置页配置后，控制台「开始学习」直接进入配置的模式+词书
+- ✅ 深色模式 — 全局暗色主题，开关即时切换
+- ✅ 大字体模式 — 单词卡片文字放大，开关即时生效
+- ✅ 卡片顺序 — 随机序/字母序，学习页实时洗牌
+- ✅ 每日目标 UI — 学习页显示新词/复习进度条
+- ✅ 刷新恢复 — 学习中刷新自动回到同一位置
+- ✅ 账号注销 — 密码确认后级联删除所有数据
+- ✅ 管理员面板 — root/123123 登录后可管理所有用户（禁用/删除/查看详情含设置+统计+打卡）
+- ✅ 管理员用户详情 — 查看任意用户的设置、学习进度、打卡记录
+- ✅ 每日打卡 — 目标达成后自动跳转学习统计并打卡，连续天数+累计次数记录
+- ✅ 智能每日目标 — 新用户无复习词时目标自动调整为仅新词数
+- ✅ 拼写模式 — D 键快捷跳转下一词，修复最后一字母无法删除问题
+- ✅ 回收桶 — 学习时可丢弃太简单的单词，永久不出现在背诵列表
+- ✅ 垃圾桶管理 — 设置页可查看已丢弃单词并恢复
 - ✅ Material Icons 本地化（国内可用）
 - ⬜ Android 端对接新单词 API
 - ⬜ 拼写/选择题测验后端

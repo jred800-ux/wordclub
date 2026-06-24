@@ -1,7 +1,9 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useWordStore } from '../stores/word'
 
+const router = useRouter()
 const store = useWordStore()
 const letterSlots = ref([])
 const activeIndex = ref(0)
@@ -9,9 +11,20 @@ const showHint = ref(false)
 const submitted = ref(false)
 const isCorrect = ref(false)
 const shakeKey = ref(0)
+const audioUnlocked = ref(false)
+const showCompletion = ref(false)
+const checkinMsg = ref('')
 
-onMounted(() => {
-  if (!store.words.length) store.fetchWords()
+onMounted(async () => {
+  await store.settingsReady()
+  store.fetchStats()
+  if (!store.words.length) {
+    if (store.selectedBookId) {
+      store.selectBook(store.selectedBookId)
+    } else {
+      store.fetchWords()
+    }
+  }
   setupSlots()
   window.addEventListener('keydown', onKeydown)
 })
@@ -25,10 +38,16 @@ const word = computed(() => store.currentWord)
 function setupSlots() {
   if (!word.value) return
   const len = word.value.spelling.length
-  letterSlots.value = Array.from({ length: len }, (_, i) => ({
-    letter: i === 0 || i === len - 1 ? word.value.spelling[i] : '',
-    prefill: i === 0 || i === len - 1,
-  }))
+  // For words with <= 2 letters, prefill only the first letter so user can type at least one
+  const minEditable = 1
+  const prefillCount = len <= 2 ? Math.max(0, len - minEditable) : 2
+  letterSlots.value = Array.from({ length: len }, (_, i) => {
+    const prefill = i < prefillCount || (prefillCount >= 2 && i === len - 1)
+    return {
+      letter: prefill ? word.value.spelling[i] : '',
+      prefill,
+    }
+  })
   activeIndex.value = letterSlots.value.findIndex(s => !s.prefill)
   showHint.value = false
   submitted.value = false
@@ -36,7 +55,13 @@ function setupSlots() {
 }
 
 function onKeydown(e) {
-  if (submitted.value) return
+  // After submission, D key goes to next word
+  if (submitted.value) {
+    if (e.key === 'd' || e.key === 'D') {
+      nextWord()
+    }
+    return
+  }
   if (e.key === 'Enter') { submitWord(); return }
   if (e.ctrlKey && e.key === 'h') { revealHint(); e.preventDefault(); return }
 
@@ -47,7 +72,14 @@ function onKeydown(e) {
     activeIndex.value = findNextEmpty(idx + 1)
   }
   if (e.key === 'Backspace') {
-    if (activeIndex.value > 0) {
+    // If all slots are full (activeIndex is -1), delete the last editable slot
+    if (activeIndex.value === -1) {
+      const lastEditable = findLastEditable()
+      if (lastEditable !== -1) {
+        letterSlots.value[lastEditable].letter = ''
+        activeIndex.value = lastEditable
+      }
+    } else if (activeIndex.value > 0) {
       const prev = findPrevEditable(activeIndex.value - 1)
       if (prev !== -1) {
         letterSlots.value[prev].letter = ''
@@ -66,6 +98,13 @@ function findNextEmpty(start) {
 
 function findPrevEditable(start) {
   for (let i = start; i >= 0; i--) {
+    if (!letterSlots.value[i].prefill) return i
+  }
+  return -1
+}
+
+function findLastEditable() {
+  for (let i = letterSlots.value.length - 1; i >= 0; i--) {
     if (!letterSlots.value[i].prefill) return i
   }
   return -1
@@ -95,16 +134,19 @@ function submitWord() {
 }
 
 function nextWord() {
+  audioUnlocked.value = true
   store.nextWord()
   nextTick(setupSlots)
 }
 
 function skipWord() {
+  audioUnlocked.value = true
   store.skipWord()
   nextTick(setupSlots)
 }
 
 function playAudio() {
+  audioUnlocked.value = true
   if (!word.value || !window.speechSynthesis) return
   const u = new SpeechSynthesisUtterance(word.value.spelling)
   u.lang = 'en-US'
@@ -112,23 +154,74 @@ function playAudio() {
   speechSynthesis.speak(u)
 }
 
-// Auto-play pronunciation when word changes
+// Auto-play only after first user interaction (avoids Chrome speechSynthesis blocking)
 watch(word, (newWord) => {
-  if (newWord) {
-    setTimeout(() => playAudio(), 300)
+  if (newWord && audioUnlocked.value) playAudio()
+})
+
+// Show completion banner when daily goal reached and auto-redirect
+watch(() => store.dailyGoalReached, (reached) => {
+  if (reached) {
+    showCompletion.value = true
+    setTimeout(() => router.push('/summary'), 1200)
   }
 })
+
+async function handleCheckin() {
+  try {
+    const result = await store.doCheckin()
+    checkinMsg.value = `已连续打卡 ${result.streak} 天!`
+  } catch (e) {
+    checkinMsg.value = e.response?.data?.message || '打卡失败'
+  }
+}
+
+async function handleTrash() {
+  if (!word.value || submitted.value) return
+  await store.addToBlacklist(word.value.id)
+  audioUnlocked.value = true
+  store.nextWord()
+  nextTick(setupSlots)
+}
 </script>
 
 <template>
-  <div class="spelling-mode" v-if="word">
-    <!-- Progress -->
-    <div class="progress-section">
-      <div class="progress-label">
-        学习进度 <strong>{{ store.progress }} / {{ store.totalWords }}</strong>
+  <div class="spelling-mode" :class="{ 'large-font': store.largeFont }" v-if="word">
+    <!-- Completion Banner -->
+    <div v-if="showCompletion" class="completion-banner">
+      <div class="completion-content">
+        <span class="material-icons celebration-icon">emoji_events</span>
+        <h3>今日目标达成!</h3>
+        <p>你已经学完了今日计划的 {{ store.dailyGoal }} 个单词</p>
+        <button
+          v-if="!store.checkedInToday"
+          class="checkin-btn"
+          @click="handleCheckin"
+          :disabled="!!checkinMsg"
+        >
+          <span class="material-icons">how_to_reg</span>
+          {{ checkinMsg || '打卡记录' }}
+        </button>
+        <p v-else class="already-checkedin">
+          <span class="material-icons">check_circle</span> 今日已打卡 · 连续 {{ store.streakDays }} 天
+        </p>
+        <button class="text-btn" @click="showCompletion = false">继续学习</button>
       </div>
-      <div class="progress-bar">
-        <div class="progress-fill" :style="{ width: store.progressPercent + '%' }"></div>
+    </div>
+
+    <!-- Daily Goal -->
+    <div class="daily-goal-bar">
+      <div class="daily-goal-header">
+        <span>今日目标</span>
+        <strong>{{ store.todayNewCount + store.todayReviewCount }} / {{ store.dailyGoal }}</strong>
+      </div>
+      <div class="daily-goal-track">
+        <div class="dg-fill-new" :style="{ width: (Math.min(store.todayNewCount, store.newWordCount) / Math.max(store.dailyGoal, 1) * 100) + '%' }"></div>
+        <div class="dg-fill-review" :style="{ width: (store.todayReviewCount / Math.max(store.dailyGoal, 1) * 100) + '%' }"></div>
+      </div>
+      <div class="daily-goal-legend">
+        <span class="legend-new"><span class="dot"></span>新词 {{ store.todayNewCount }} / {{ store.newWordCount }}</span>
+        <span class="legend-review"><span class="dot"></span>复习 {{ store.todayReviewCount }} / {{ store.effectiveReviewTarget }}</span>
       </div>
     </div>
 
@@ -194,16 +287,20 @@ watch(word, (newWord) => {
           v-if="!submitted"
           class="btn-primary"
           @click="submitWord"
-          :disabled="letterSlots.every(s => s.prefill || s.letter)"
+          :disabled="!letterSlots.every(s => s.prefill || s.letter)"
         >
           确认
           <span class="shortcut">ENTER 提交</span>
         </button>
         <button v-else class="btn-primary" @click="nextWord">
           下一个 <span class="material-icons">arrow_forward</span>
+          <span class="shortcut">D 键</span>
         </button>
         <button class="btn-ghost" @click="skipWord" :disabled="submitted">
           <span class="material-icons">skip_next</span> 跳过此词
+        </button>
+        <button class="btn-ghost trash-btn" @click="handleTrash" :disabled="submitted">
+          <span class="material-icons">delete_outline</span> 扔进垃圾桶
         </button>
       </div>
     </div>
@@ -222,12 +319,39 @@ watch(word, (newWord) => {
   padding: 32px 20px;
 }
 
-/* Progress */
-.progress-section { margin-bottom: 32px; }
-.progress-label { font-size: 14px; color: var(--color-text-secondary); margin-bottom: 8px; }
-.progress-label strong { color: var(--color-text-primary); }
-.progress-bar { height: 6px; background: var(--color-border); border-radius: var(--radius-full); overflow: hidden; }
-.progress-fill { height: 100%; background: var(--color-primary); border-radius: var(--radius-full); transition: width 0.4s; }
+/* Daily Goal */
+.daily-goal-bar {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+.daily-goal-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+.daily-goal-header strong { color: var(--color-text-primary); }
+.daily-goal-track {
+  display: flex;
+  height: 6px;
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.dg-fill-new { height: 100%; background: var(--color-primary); transition: width 0.4s ease; }
+.dg-fill-review { height: 100%; background: var(--color-warning); transition: width 0.4s ease; }
+.daily-goal-legend { display: flex; gap: 16px; font-size: 12px; color: var(--color-text-muted); }
+.legend-new .dot, .legend-review .dot {
+  display: inline-block; width: 8px; height: 8px;
+  border-radius: 50%; margin-right: 4px; vertical-align: middle;
+}
+.legend-new .dot { background: var(--color-primary); }
+.legend-review .dot { background: var(--color-warning); }
 
 /* Card */
 .spelling-card {
@@ -385,6 +509,57 @@ watch(word, (newWord) => {
   transition: background 0.15s;
 }
 .btn-ghost:hover:not(:disabled) { background: var(--color-divider); }
+.trash-btn { color: #9ca3af; }
+
+/* Completion Banner */
+.completion-banner {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1px solid #fcd34d;
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+.completion-content h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #92400e;
+  margin: 8px 0 4px;
+}
+.completion-content p {
+  font-size: 13px;
+  color: #a16207;
+  margin-bottom: 16px;
+}
+.celebration-icon {
+  font-size: 40px;
+  color: #f59e0b;
+}
+.checkin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 28px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+.checkin-btn:disabled { opacity: 0.7; cursor: default; }
+.already-checkedin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #059669;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
 
 /* Empty */
 .empty-state { text-align: center; padding: 80px 20px; color: var(--color-text-muted); }
