@@ -5,7 +5,9 @@ import { useWordStore } from '../stores/word'
 const store = useWordStore()
 const statusMsg = ref('')
 
-onMounted(() => {
+onMounted(async () => {
+  await store.settingsReady()
+  store.fetchStats()
   if (!store.words.length) {
     if (store.selectedBookId) {
       store.selectBook(store.selectedBookId)
@@ -55,7 +57,7 @@ watch(() => store.currentWord, () => {
 </script>
 
 <template>
-  <div class="first-sight" v-if="store.currentWord">
+  <div class="first-sight" :class="{ 'large-font': store.largeFont }" v-if="store.currentWord">
     <!-- Progress -->
     <div class="progress-section">
       <div class="progress-label">
@@ -64,6 +66,22 @@ watch(() => store.currentWord, () => {
       </div>
       <div class="progress-bar">
         <div class="progress-fill" :style="{ width: store.progressPercent + '%' }"></div>
+      </div>
+    </div>
+
+    <!-- Daily Goal -->
+    <div class="daily-goal-bar">
+      <div class="daily-goal-header">
+        <span>今日目标</span>
+        <strong>{{ store.todayNewCount + store.todayReviewCount }} / {{ store.dailyGoal }}</strong>
+      </div>
+      <div class="daily-goal-track">
+        <div class="dg-fill-new" :style="{ width: (store.todayNewCount / Math.max(store.dailyGoal, 1) * 100) + '%' }"></div>
+        <div class="dg-fill-review" :style="{ width: (store.todayReviewCount / Math.max(store.dailyGoal, 1) * 100) + '%' }"></div>
+      </div>
+      <div class="daily-goal-legend">
+        <span class="legend-new"><span class="dot"></span>新词 {{ store.todayNewCount }}</span>
+        <span class="legend-review"><span class="dot"></span>复习 {{ store.todayReviewCount }}</span>
       </div>
     </div>
 
@@ -153,6 +171,58 @@ watch(() => store.currentWord, () => {
   border-radius: var(--radius-full);
   transition: width 0.4s ease;
 }
+
+/* Daily Goal */
+.daily-goal-bar {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+.daily-goal-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+.daily-goal-header strong {
+  color: var(--color-text-primary);
+}
+.daily-goal-track {
+  display: flex;
+  height: 6px;
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.dg-fill-new {
+  height: 100%;
+  background: var(--color-primary);
+  transition: width 0.4s ease;
+}
+.dg-fill-review {
+  height: 100%;
+  background: var(--color-warning);
+  transition: width 0.4s ease;
+}
+.daily-goal-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.legend-new .dot, .legend-review .dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.legend-new .dot { background: var(--color-primary); }
+.legend-review .dot { background: var(--color-warning); }
 
 /* Word Card */
 .word-card {
