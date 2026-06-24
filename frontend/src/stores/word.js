@@ -171,10 +171,19 @@ export const useWordStore = defineStore('word', () => {
     await fetchWords(0)
   }
 
-  // Fisher-Yates shuffle (in-place)
-  function _shuffle(arr) {
+  // Seeded PRNG (mulberry32) — deterministic shuffle across refreshes
+  function _seededRandom(seed) {
+    let s = Math.abs(seed) | 0 || 1
+    return function () {
+      s = (s * 1664525 + 1013904223) | 0
+      return (s >>> 0) / 4294967296
+    }
+  }
+
+  // Fisher-Yates shuffle with custom RNG (in-place)
+  function _shuffle(arr, rng) {
     for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
+      const j = Math.floor((rng || Math.random)() * (i + 1))
       ;[arr[i], arr[j]] = [arr[j], arr[i]]
     }
   }
@@ -192,9 +201,9 @@ export const useWordStore = defineStore('word', () => {
       totalPages.value = pageData.totalPages ?? 0
       totalElements.value = pageData.totalElements ?? words.value.length
 
-      // Apply card order on client side
+      // Apply card order on client side — seeded shuffle for stability
       if (cardOrder.value === 'random') {
-        _shuffle(words.value)
+        _shuffle(words.value, _seededRandom(selectedBookId.value || 1))
       }
     } catch (e) {
       error.value = e.message
@@ -257,29 +266,12 @@ export const useWordStore = defineStore('word', () => {
 
   // --- Local Learning Actions ---
 
-  // Track daily new vs review counts
-  const _interactedToday = new Set()
-  function _trackWordInteraction() {
-    const word = currentWord.value
-    if (!word) return
-    const wasKnown = masteredIds.value.has(word.id)
-      || fuzzyIds.value.has(word.id)
-      || unknownIds.value.has(word.id)
-      || _interactedToday.has(word.id)
-    if (!wasKnown) {
-      todayNewCount.value++
-    } else {
-      todayReviewCount.value++
-    }
-    _interactedToday.add(word.id)
-  }
-
   function markMastered(word) {
     masteredIds.value.add(word.id)
     fuzzyIds.value.delete(word.id)
     unknownIds.value.delete(word.id)
-    _trackWordInteraction()
     recordReview(word.id, 5)
+    fetchStats()
     nextWord()
   }
 
@@ -287,8 +279,8 @@ export const useWordStore = defineStore('word', () => {
     fuzzyIds.value.add(word.id)
     masteredIds.value.delete(word.id)
     unknownIds.value.delete(word.id)
-    _trackWordInteraction()
     recordReview(word.id, 2)
+    fetchStats()
     nextWord()
   }
 
@@ -296,8 +288,8 @@ export const useWordStore = defineStore('word', () => {
     unknownIds.value.add(word.id)
     masteredIds.value.delete(word.id)
     fuzzyIds.value.delete(word.id)
-    _trackWordInteraction()
     recordReview(word.id, 0)
+    fetchStats()
     nextWord()
   }
 

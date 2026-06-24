@@ -48,27 +48,14 @@ function playAudio() {
   }
 }
 
-// Auto-play pronunciation when word changes
-watch(() => store.currentWord, () => {
-  if (store.currentWord) {
-    setTimeout(() => playAudio(), 300)
-  }
+// Auto-play pronunciation when word changes (synchronous to stay within user activation)
+watch(() => store.currentWord, (newWord) => {
+  if (newWord) playAudio()
 })
 </script>
 
 <template>
   <div class="first-sight" :class="{ 'large-font': store.largeFont }" v-if="store.currentWord">
-    <!-- Progress -->
-    <div class="progress-section">
-      <div class="progress-label">
-        学习进度
-        <strong>{{ store.progress }} / {{ store.totalWords }}</strong>
-      </div>
-      <div class="progress-bar">
-        <div class="progress-fill" :style="{ width: store.progressPercent + '%' }"></div>
-      </div>
-    </div>
-
     <!-- Daily Goal -->
     <div class="daily-goal-bar">
       <div class="daily-goal-header">
@@ -145,31 +132,6 @@ watch(() => store.currentWord, () => {
   max-width: 640px;
   margin: 0 auto;
   padding: 32px 20px;
-}
-
-/* Progress */
-.progress-section {
-  margin-bottom: 32px;
-}
-.progress-label {
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  margin-bottom: 8px;
-}
-.progress-label strong {
-  color: var(--color-text-primary);
-}
-.progress-bar {
-  height: 6px;
-  background: var(--color-border);
-  border-radius: var(--radius-full);
-  overflow: hidden;
-}
-.progress-fill {
-  height: 100%;
-  background: var(--color-primary);
-  border-radius: var(--radius-full);
-  transition: width 0.4s ease;
 }
 
 /* Daily Goal */
