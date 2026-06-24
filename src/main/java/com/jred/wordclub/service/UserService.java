@@ -9,6 +9,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -96,5 +99,42 @@ public class UserService {
             throw new RuntimeException("不能删除管理员账户");
         }
         deleteAccount(userId);
+    }
+
+    public Map<String, Object> getUserDetail(Long userId) {
+        User user = findById(userId);
+        Map<String, Object> detail = new HashMap<>();
+        detail.put("id", user.getId());
+        detail.put("username", user.getUsername());
+        detail.put("email", user.getEmail());
+        detail.put("nickname", user.getNickname());
+        detail.put("enabled", user.getEnabled());
+        detail.put("role", user.getRole());
+        detail.put("createdAt", user.getCreatedAt());
+
+        // User settings
+        userSettingRepository.findByUserId(userId).ifPresentOrElse(
+                setting -> detail.put("settings", setting),
+                () -> detail.put("settings", null));
+
+        // Learning stats
+        Map<String, Object> learningStats = new HashMap<>();
+        learningStats.put("mastered", progressRepository.countByUserIdAndStatus(userId, "MASTERED"));
+        learningStats.put("reviewing", progressRepository.countByUserIdAndStatus(userId, "REVIEW"));
+        learningStats.put("learning", progressRepository.countByUserIdAndStatus(userId, "LEARNING"));
+        learningStats.put("newCount", progressRepository.countByUserIdAndStatus(userId, "NEW"));
+        learningStats.put("favoritesCount", favoriteRepository.countByUserId(userId));
+        learningStats.put("blacklistCount", blacklistRepository.countByUserId(userId));
+        detail.put("learningStats", learningStats);
+
+        // Checkin stats
+        Map<String, Object> checkinStats = new HashMap<>();
+        checkinStats.put("totalCheckins", checkinRepository.countByUserId(userId));
+        checkinRepository.findTopByUserIdOrderByCheckinDateDesc(userId).ifPresentOrElse(
+                c -> checkinStats.put("lastCheckinDate", c.getCheckinDate().toString()),
+                () -> checkinStats.put("lastCheckinDate", null));
+        detail.put("checkinStats", checkinStats);
+
+        return detail;
     }
 }

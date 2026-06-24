@@ -5,6 +5,8 @@ import { useWordStore } from '../stores/word'
 const store = useWordStore()
 
 const learnPath = computed(() => {
+  // If daily goal already reached today, go to study summary
+  if (store.dailyGoalReached) return '/summary'
   return store.learningMode === 'spelling' ? '/learn/spelling' : '/learn/first-sight'
 })
 

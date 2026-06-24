@@ -113,9 +113,11 @@ public class VocabularyService {
         long todayNewCount = progressRepository.countByUserIdAndCreatedAtAfter(userId, todayStart);
         long todayReviewCount = progressRepository
                 .countByUserIdAndUpdatedAtAfterAndCreatedAtBefore(userId, todayStart, todayStart);
+        long pendingReviewCount = progressRepository.countByUserIdAndNextReviewAtBefore(userId, LocalDateTime.now());
 
         stats.put("todayNewCount", todayNewCount);
         stats.put("todayReviewCount", todayReviewCount);
+        stats.put("pendingReviewCount", pendingReviewCount);
         stats.put("todayLearned", todayNewCount + todayReviewCount);
         stats.put("mastered", progressRepository.countByUserIdAndStatus(userId, "MASTERED"));
         stats.put("reviewing", progressRepository.countByUserIdAndStatus(userId, "REVIEW"));

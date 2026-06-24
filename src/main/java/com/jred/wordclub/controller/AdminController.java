@@ -58,4 +58,9 @@ public class AdminController {
         userService.deleteUser(id);
         return Result.ok();
     }
+
+    @GetMapping("/users/{id}")
+    public Result<Map<String, Object>> getUserDetail(@PathVariable Long id) {
+        return Result.ok(userService.getUserDetail(id));
+    }
 }

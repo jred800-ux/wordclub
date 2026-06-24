@@ -1,7 +1,9 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useWordStore } from '../stores/word'
 
+const router = useRouter()
 const store = useWordStore()
 const letterSlots = ref([])
 const activeIndex = ref(0)
@@ -53,7 +55,13 @@ function setupSlots() {
 }
 
 function onKeydown(e) {
-  if (submitted.value) return
+  // After submission, D key goes to next word
+  if (submitted.value) {
+    if (e.key === 'd' || e.key === 'D') {
+      nextWord()
+    }
+    return
+  }
   if (e.key === 'Enter') { submitWord(); return }
   if (e.ctrlKey && e.key === 'h') { revealHint(); e.preventDefault(); return }
 
@@ -64,7 +72,14 @@ function onKeydown(e) {
     activeIndex.value = findNextEmpty(idx + 1)
   }
   if (e.key === 'Backspace') {
-    if (activeIndex.value > 0) {
+    // If all slots are full (activeIndex is -1), delete the last editable slot
+    if (activeIndex.value === -1) {
+      const lastEditable = findLastEditable()
+      if (lastEditable !== -1) {
+        letterSlots.value[lastEditable].letter = ''
+        activeIndex.value = lastEditable
+      }
+    } else if (activeIndex.value > 0) {
       const prev = findPrevEditable(activeIndex.value - 1)
       if (prev !== -1) {
         letterSlots.value[prev].letter = ''
@@ -83,6 +98,13 @@ function findNextEmpty(start) {
 
 function findPrevEditable(start) {
   for (let i = start; i >= 0; i--) {
+    if (!letterSlots.value[i].prefill) return i
+  }
+  return -1
+}
+
+function findLastEditable() {
+  for (let i = letterSlots.value.length - 1; i >= 0; i--) {
     if (!letterSlots.value[i].prefill) return i
   }
   return -1
@@ -137,10 +159,11 @@ watch(word, (newWord) => {
   if (newWord && audioUnlocked.value) playAudio()
 })
 
-// Show completion banner when daily goal reached
+// Show completion banner when daily goal reached and auto-redirect
 watch(() => store.dailyGoalReached, (reached) => {
-  if (reached && !store.checkedInToday) {
+  if (reached) {
     showCompletion.value = true
+    setTimeout(() => router.push('/summary'), 1200)
   }
 })
 
@@ -193,12 +216,12 @@ async function handleTrash() {
         <strong>{{ store.todayNewCount + store.todayReviewCount }} / {{ store.dailyGoal }}</strong>
       </div>
       <div class="daily-goal-track">
-        <div class="dg-fill-new" :style="{ width: (store.todayNewCount / Math.max(store.dailyGoal, 1) * 100) + '%' }"></div>
+        <div class="dg-fill-new" :style="{ width: (Math.min(store.todayNewCount, store.newWordCount) / Math.max(store.dailyGoal, 1) * 100) + '%' }"></div>
         <div class="dg-fill-review" :style="{ width: (store.todayReviewCount / Math.max(store.dailyGoal, 1) * 100) + '%' }"></div>
       </div>
       <div class="daily-goal-legend">
-        <span class="legend-new"><span class="dot"></span>新词 {{ store.todayNewCount }}</span>
-        <span class="legend-review"><span class="dot"></span>复习 {{ store.todayReviewCount }}</span>
+        <span class="legend-new"><span class="dot"></span>新词 {{ store.todayNewCount }} / {{ store.newWordCount }}</span>
+        <span class="legend-review"><span class="dot"></span>复习 {{ store.todayReviewCount }} / {{ store.effectiveReviewTarget }}</span>
       </div>
     </div>
 
@@ -271,6 +294,7 @@ async function handleTrash() {
         </button>
         <button v-else class="btn-primary" @click="nextWord">
           下一个 <span class="material-icons">arrow_forward</span>
+          <span class="shortcut">D 键</span>
         </button>
         <button class="btn-ghost" @click="skipWord" :disabled="submitted">
           <span class="material-icons">skip_next</span> 跳过此词

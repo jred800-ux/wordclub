@@ -37,6 +37,7 @@ export const useWordStore = defineStore('word', () => {
   const masteredCount = ref(0)
   const todayNewCount = ref(0)
   const todayReviewCount = ref(0)
+  const pendingReviewCount = ref(0)
   const checkedInToday = ref(false)
   const totalCheckins = ref(0)
 
@@ -45,13 +46,21 @@ export const useWordStore = defineStore('word', () => {
 
   // --- Computed ---
 
-  const dailyGoal = computed(() => newWordCount.value + newWordCount.value * reviewRatio.value)
+  // Effective daily goal: new words + available review words (capped by user's review ratio setting)
+  const effectiveReviewTarget = computed(() => Math.min(newWordCount.value * reviewRatio.value, pendingReviewCount.value))
+  const dailyGoal = computed(() => newWordCount.value + effectiveReviewTarget.value)
   const reviewWordCount = computed(() => newWordCount.value * reviewRatio.value)
   const dailyGoalPercent = computed(() => {
     if (!dailyGoal.value) return 0
-    return Math.min(100, Math.round(((todayNewCount.value + todayReviewCount.value) / dailyGoal.value) * 100))
+    // New words count toward the new-word portion, review words count toward the review portion
+    const newProgress = Math.min(todayNewCount.value, newWordCount.value)
+    const reviewProgress = Math.min(todayReviewCount.value, effectiveReviewTarget.value)
+    return Math.min(100, Math.round(((newProgress + reviewProgress) / dailyGoal.value) * 100))
   })
-  const dailyGoalReached = computed(() => dailyGoalPercent.value >= 100)
+  const dailyGoalReached = computed(() => {
+    if (!dailyGoal.value) return false
+    return todayNewCount.value >= newWordCount.value && todayReviewCount.value >= effectiveReviewTarget.value
+  })
 
   const currentWord = computed(() => {
     const w = words.value[currentIndex.value]
@@ -236,6 +245,7 @@ export const useWordStore = defineStore('word', () => {
       todayLearned.value = stats.todayLearned || 0
       todayNewCount.value = stats.todayNewCount || 0
       todayReviewCount.value = stats.todayReviewCount || 0
+      pendingReviewCount.value = stats.pendingReviewCount || 0
       masteredCount.value = stats.mastered || 0
       streakDays.value = stats.streakDays || 0
       checkedInToday.value = !!stats.checkedInToday
@@ -385,7 +395,8 @@ export const useWordStore = defineStore('word', () => {
     cardOrder, largeFont, darkMode, learningMode, dailyGoal, reviewWordCount,
     newWordCount, reviewRatio, examDate, bookProgress,
     todayLearned, streakDays, masteredCount,
-    todayNewCount, todayReviewCount, dailyGoalPercent, dailyGoalReached,
+    todayNewCount, todayReviewCount, pendingReviewCount,
+    dailyGoalPercent, dailyGoalReached, effectiveReviewTarget,
     checkedInToday, totalCheckins, blacklistedIds,
     currentWord, totalWords, progress, progressPercent,
     fetchBooks, selectBook, fetchWords, fetchWordDetail, fetchStats,

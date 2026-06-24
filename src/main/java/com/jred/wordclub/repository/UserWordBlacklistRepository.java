@@ -9,4 +9,6 @@ public interface UserWordBlacklistRepository extends JpaRepository<UserWordBlack
     void deleteByUserIdAndWordId(Long userId, Long wordId);
     List<UserWordBlacklist> findByUserIdOrderByCreatedAtDesc(Long userId);
     void deleteAllByUserId(Long userId);
+
+    long countByUserId(Long userId);
 }

@@ -1,7 +1,9 @@
 <script setup>
 import { onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useWordStore } from '../stores/word'
 
+const router = useRouter()
 const store = useWordStore()
 const statusMsg = ref('')
 const audioUnlocked = ref(false)
@@ -60,10 +62,16 @@ watch(() => store.currentWord, (newWord) => {
   if (newWord && audioUnlocked.value) playAudio()
 })
 
-// Show completion banner when daily goal reached
+// Show completion banner when daily goal reached and auto-redirect
 watch(() => store.dailyGoalReached, (reached) => {
-  if (reached && !store.checkedInToday) {
+  if (reached) {
     showCompletion.value = true
+    if (!store.checkedInToday) {
+      // Auto-redirect to study summary after a short delay so user sees the completion
+      setTimeout(() => router.push('/summary'), 1200)
+    } else {
+      setTimeout(() => router.push('/summary'), 1200)
+    }
   }
 })
 
@@ -97,12 +105,12 @@ async function handleTrash() {
         <strong>{{ store.todayNewCount + store.todayReviewCount }} / {{ store.dailyGoal }}</strong>
       </div>
       <div class="daily-goal-track">
-        <div class="dg-fill-new" :style="{ width: (store.todayNewCount / Math.max(store.dailyGoal, 1) * 100) + '%' }"></div>
+        <div class="dg-fill-new" :style="{ width: (Math.min(store.todayNewCount, store.newWordCount) / Math.max(store.dailyGoal, 1) * 100) + '%' }"></div>
         <div class="dg-fill-review" :style="{ width: (store.todayReviewCount / Math.max(store.dailyGoal, 1) * 100) + '%' }"></div>
       </div>
       <div class="daily-goal-legend">
-        <span class="legend-new"><span class="dot"></span>新词 {{ store.todayNewCount }}</span>
-        <span class="legend-review"><span class="dot"></span>复习 {{ store.todayReviewCount }}</span>
+        <span class="legend-new"><span class="dot"></span>新词 {{ store.todayNewCount }} / {{ store.newWordCount }}</span>
+        <span class="legend-review"><span class="dot"></span>复习 {{ store.todayReviewCount }} / {{ store.effectiveReviewTarget }}</span>
       </div>
     </div>
 
